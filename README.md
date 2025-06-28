@@ -61,9 +61,9 @@ Add to your MCP client configuration:
 }
 ```
 
-### Claude Desktop Configuration
+### MCP Client Configuration
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Add to your MCP client configuration file:
 
 ```json
 {

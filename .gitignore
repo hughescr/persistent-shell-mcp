@@ -64,3 +64,6 @@ build/
 # Testing
 test-results/
 playwright-report/
+
+# Development tools
+.claude/
