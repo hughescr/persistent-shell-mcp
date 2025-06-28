@@ -1,5 +1,9 @@
 # Tmux MCP Server
 
+⚠️ **WARNING: EXPERIMENTAL SOFTWARE - NOT FOR PRODUCTION USE** ⚠️
+
+**This is experimental software intended for testing and development purposes only. Do not use in production environments or with sensitive data.**
+
 A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute shell commands with session persistence, interactive command support, and real-time terminal monitoring.
 
 ## Features
@@ -12,6 +16,8 @@ A Model Context Protocol (MCP) server that provides persistent shell execution t
 - **Automatic Cleanup**: Intelligent cleanup of idle sessions
 
 ## Installation
+
+**🚨 SECURITY WARNING: This software allows AI assistants to execute arbitrary shell commands on your system. Only install and use in isolated testing environments. Never use on systems with sensitive data or in production environments.**
 
 ### Prerequisites
 
