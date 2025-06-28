@@ -264,19 +264,3 @@ Use `shell_exec_interactive` for long-running commands instead of `shell_exec`
 
 MIT
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## Changelog
-
-### 0.1.0
-- Initial release
-- Basic tmux session management
-- Interactive command support
-- Real-time terminal monitoring
-- Automatic session cleanup
