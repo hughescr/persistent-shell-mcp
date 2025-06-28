@@ -67,3 +67,10 @@ playwright-report/
 
 # Development tools
 .claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
