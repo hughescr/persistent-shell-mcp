@@ -30,14 +30,14 @@ A Model Context Protocol (MCP) server that provides persistent shell execution t
 ### Install from npm
 
 ```bash
-npm install -g tmux-mcp-server
+npm install -g persistent-shell-mcp
 ```
 
 ### Install from source
 
 ```bash
-git clone https://github.com/Tater-T/tmux-mcp-server.git
-cd tmux-mcp-server
+git clone https://github.com/TNTisdial/persistent-shell-mcp.git
+cd persistent-shell-mcp
 npm install
 npm link
 ```
@@ -61,7 +61,7 @@ Add to your MCP client configuration:
 {
   "mcpServers": {
     "tmux-shell": {
-      "command": "tmux-mcp-server"
+      "command": "persistent-shell-mcp"
     }
   }
 }
@@ -75,7 +75,7 @@ Add to your MCP client configuration file:
 {
   "mcpServers": {
     "tmux-shell": {
-      "command": "tmux-mcp-server"
+      "command": "persistent-shell-mcp"
     }
   }
 }

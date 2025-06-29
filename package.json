@@ -1,11 +1,11 @@
 {
-  "name": "tmux-mcp-server",
-  "version": "0.1.1",
+  "name": "persistent-shell-mcp",
+  "version": "0.2.0",
   "description": "MCP server that provides persistent shell execution through tmux sessions",
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "tmux-mcp-server": "./bin/tmux-mcp-server"
+    "persistent-shell-mcp": "./bin/tmux-mcp-server"
   },
   "scripts": {
     "start": "node src/index.js",
@@ -30,7 +30,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Tater-T/tmux-mcp-server.git"
+    "url": "https://github.com/TNTisdial/persistent-shell-mcp.git"
   },
   "files": [
     "src/",
