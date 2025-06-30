@@ -1,11 +1,10 @@
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
+import { promises as fs } from 'fs';
 
 class TmuxManager {
     constructor() {
         this.sessions = new Map();
-        this.maxRetries = 3;
-        this.retryDelay = 500; // 500ms
         this.sessionMetadata = new Map();
         this.lastHealthCheck = new Map();
         this.healthCheckInterval = 5 * 60 * 1000; // 5 minutes
@@ -18,9 +17,8 @@ class TmuxManager {
         if (this.tmuxAvailable !== null) {
             return this.tmuxAvailable;
         }
-
         try {
-            await this._runTmuxCommand(['list-sessions'], false);
+            await this._runTmuxCommand(['list-sessions'], 5000);
             this.tmuxAvailable = true;
             return true;
         } catch (error) {
@@ -40,68 +38,66 @@ class TmuxManager {
 
     async createSession(sessionId = null, purpose = 'general') {
         await this.checkTmuxInstallation();
-        
+
         if (sessionId === null) {
             sessionId = `mcp_${randomBytes(4).toString('hex')}`;
         }
 
-        // Check if session already exists first
         if (await this.sessionExists(sessionId)) {
-            console.log(`Session ${sessionId} already exists`);
-            this.sessions.set(sessionId, { created: true, active: true });
+            console.log(`Session ${sessionId} already exists and is correctly configured.`);
             this._updateSessionMetadata(sessionId, { lastAccessed: Date.now() });
             return sessionId;
         }
 
-        let lastError = null;
-        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+        const uiLogFile = `/tmp/tmux-mcp-ui-${sessionId}.log`;
+
+        try {
+            // 1. Create the session with the 'exec' window
+            await this._runTmuxCommand([
+                'new-session', '-d',
+                '-s', sessionId,
+                '-n', 'exec',
+                '-c', process.cwd() // Start in current working directory
+            ]);
+
+            // 2. Create the 'ui' window
+            await this._runTmuxCommand([
+                'new-window',
+                '-t', `${sessionId}`,
+                '-n', 'ui'
+            ]);
+
+            // 3. Start the UI log viewer in the 'ui' window
+            await fs.writeFile(uiLogFile, ''); // Ensure log file is created and empty
+            await this.sendKeysToWindow(sessionId, 'ui', `tail -f ${uiLogFile}`, true);
+
+            // 4. Set metadata
+            const now = Date.now();
+            this.sessions.set(sessionId, { created: true, active: true, createdAt: new Date().toISOString() });
+            this.sessionMetadata.set(sessionId, {
+                purpose,
+                createdAt: now,
+                lastAccessed: now,
+                commandCount: 0,
+                healthStatus: 'healthy',
+                workingDirectory: process.cwd(),
+                uiLogFile: uiLogFile
+            });
+            this.lastHealthCheck.set(sessionId, now);
+
+            console.log(`Created tmux session: ${sessionId} with 'ui' and 'exec' windows.`);
+            return sessionId;
+
+        } catch (error) {
+            console.error(`Failed to create and configure session ${sessionId}:`, error.message);
+            // Cleanup failed session creation
             try {
-                await this._runTmuxCommand([
-                    'new-session',
-                    '-d',
-                    '-s', sessionId,
-                    '-c', '/tmp'
-                ]);
-
-                // Verify session was actually created
-                if (await this.sessionExists(sessionId)) {
-                    const now = Date.now();
-                    this.sessions.set(sessionId, {
-                        created: true,
-                        active: true,
-                        createdAt: new Date().toISOString()
-                    });
-                    
-                    // Initialize session metadata for lifecycle management
-                    this.sessionMetadata.set(sessionId, {
-                        purpose,
-                        createdAt: now,
-                        lastAccessed: now,
-                        commandCount: 0,
-                        healthStatus: 'healthy',
-                        workingDirectory: '/tmp'
-                    });
-                    
-                    this.lastHealthCheck.set(sessionId, now);
-
-                    console.log(`Created tmux session: ${sessionId} (purpose: ${purpose})`);
-                    return sessionId;
-                } else {
-                    throw new Error('Session creation succeeded but session not found');
+                if (await this._runTmuxCommand(['has-session', '-t', sessionId])) {
+                     await this.destroySession(sessionId);
                 }
-
-            } catch (error) {
-                lastError = error;
-                console.error(`Failed to create tmux session ${sessionId} (attempt ${attempt}):`, error.message);
-                
-                if (attempt < this.maxRetries) {
-                    console.log(`Retrying session creation in ${this.retryDelay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-                }
-            }
+            } catch(e) { /* ignore cleanup errors */ }
+            throw new Error(`Failed to create tmux session: ${error.message}`);
         }
-        
-        throw new Error(`Failed to create tmux session after ${this.maxRetries} attempts: ${lastError.message}`);
     }
 
     async sessionExists(sessionId) {
@@ -111,12 +107,15 @@ class TmuxManager {
         
         try {
             await this.checkTmuxInstallation();
-            await this._runTmuxCommand(['has-session', '-t', sessionId]);
-            // Update last accessed time for lifecycle management
-            this._updateSessionMetadata(sessionId, { lastAccessed: Date.now() });
-            return true;
+            const result = await this._runTmuxCommand(['list-windows', '-t', sessionId, '-F', '#{window_name}']);
+            const windows = new Set(result.stdout.trim().split('\n'));
+            
+            if (windows.has('ui') && windows.has('exec')) {
+                this._updateSessionMetadata(sessionId, { lastAccessed: Date.now() });
+                return true;
+            }
+            return false;
         } catch (error) {
-            // Remove from our internal tracking if session no longer exists
             if (this.sessions.has(sessionId)) {
                 this.sessions.delete(sessionId);
                 this.sessionMetadata.delete(sessionId);
@@ -132,7 +131,6 @@ class TmuxManager {
             const result = await this._runTmuxCommand(['list-sessions', '-F', '#{session_name}']);
             return result.stdout.trim() ? result.stdout.trim().split('\n') : [];
         } catch (error) {
-            // Re-throw installation errors
             if (error.message.includes('tmux is not installed')) {
                 throw error;
             }
@@ -145,85 +143,52 @@ class TmuxManager {
             throw new Error('Session ID must be a non-empty string');
         }
         
-        // Check if session exists before attempting to destroy
-        if (!(await this.sessionExists(sessionId))) {
-            throw new Error(`Session ${sessionId} not found. Cannot destroy a nonexistent session.`);
+        const exists = await this._runTmuxCommand(['has-session', '-t', sessionId]).then(() => true).catch(() => false);
+        if (!exists) {
+            console.warn(`Session ${sessionId} not found. Cannot destroy.`);
+            return false;
         }
         
-        let lastError = null;
-        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-            try {
-                await this._runTmuxCommand(['kill-session', '-t', sessionId]);
-                
-                // Verify session was actually destroyed
-                const stillExists = await this.sessionExists(sessionId);
-                if (!stillExists) {
-                    this.sessions.delete(sessionId);
-                    console.log(`Destroyed tmux session: ${sessionId}`);
-                    return true;
-                } else {
-                    throw new Error('Session destroy command succeeded but session still exists');
-                }
-
-            } catch (error) {
-                lastError = error;
-                console.error(`Failed to destroy session ${sessionId} (attempt ${attempt}):`, error.message);
-                
-                if (attempt < this.maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-                }
-            }
+        try {
+            await this._runTmuxCommand(['kill-session', '-t', sessionId]);
+            this.sessions.delete(sessionId);
+            this.sessionMetadata.delete(sessionId);
+            this.lastHealthCheck.delete(sessionId);
+            console.log(`Destroyed tmux session: ${sessionId}`);
+            // Clean up UI log file
+            const uiLogFile = `/tmp/tmux-mcp-ui-${sessionId}.log`;
+            await fs.unlink(uiLogFile).catch(err => console.warn(`Failed to clean up UI log file ${uiLogFile}: ${err.message}`));
+            return true;
+        } catch (error) {
+            console.error(`Failed to destroy session ${sessionId}:`, error.message);
+            return false;
         }
-        
-        console.error(`Failed to destroy session ${sessionId} after ${this.maxRetries} attempts:`, lastError.message);
-        return false;
     }
 
     async getSessionHealth(sessionId) {
-        if (!sessionId || typeof sessionId !== 'string') {
-            return { exists: false, error: 'Invalid session ID' };
+        const exists = await this.sessionExists(sessionId);
+        if (!exists) {
+            return { exists: false, healthy: false, reason: 'Session does not exist or is misconfigured' };
         }
 
-        try {
-            // Check basic existence
-            const exists = await this.sessionExists(sessionId);
-            if (!exists) {
-                return { exists: false, healthy: false, reason: 'Session does not exist' };
-            }
+        const metadata = this.sessionMetadata.get(sessionId) || {};
+        const now = Date.now();
+        const age = now - (metadata.createdAt || now);
+        const idleTime = now - (metadata.lastAccessed || now);
 
-            const metadata = this.sessionMetadata.get(sessionId) || {};
-            const now = Date.now();
-            const lastCheck = this.lastHealthCheck.get(sessionId) || 0;
-
-            // Perform health check if needed
-            if (now - lastCheck > this.healthCheckInterval) {
-                await this._performHealthCheck(sessionId);
-            }
-
-            const healthStatus = metadata.healthStatus || 'unknown';
-            const age = now - (metadata.createdAt || now);
-            const idleTime = now - (metadata.lastAccessed || now);
-
-            return {
-                exists: true,
-                healthy: healthStatus === 'healthy',
-                session_id: sessionId,
-                purpose: metadata.purpose || 'unknown',
-                age_minutes: Math.round(age / (1000 * 60)),
-                idle_minutes: Math.round(idleTime / (1000 * 60)),
-                command_count: metadata.commandCount || 0,
-                working_directory: metadata.workingDirectory || 'unknown',
-                health_status: healthStatus,
-                last_health_check: new Date(lastCheck).toISOString(),
-                needs_cleanup: idleTime > this.maxIdleTime
-            };
-        } catch (error) {
-            return {
-                exists: false,
-                healthy: false,
-                error: error.message
-            };
-        }
+        return {
+            exists: true,
+            healthy: metadata.healthStatus === 'healthy',
+            session_id: sessionId,
+            purpose: metadata.purpose || 'unknown',
+            age_minutes: Math.round(age / (1000 * 60)),
+            idle_minutes: Math.round(idleTime / (1000 * 60)),
+            command_count: metadata.commandCount || 0,
+            working_directory: metadata.workingDirectory || 'unknown',
+            health_status: metadata.healthStatus,
+            last_health_check: new Date(this.lastHealthCheck.get(sessionId) || 0).toISOString(),
+            needs_cleanup: idleTime > this.maxIdleTime
+        };
     }
 
     async performLifecycleCleanup() {
@@ -232,14 +197,11 @@ class TmuxManager {
         const cleanedSessions = [];
 
         for (const sessionId of sessions) {
-            const metadata = this.sessionMetadata.get(sessionId);
-            if (!metadata) continue;
+            const health = await this.getSessionHealth(sessionId);
+            if (!health.exists) continue;
 
-            const idleTime = now - metadata.lastAccessed;
-            const isZombie = metadata.healthStatus === 'unhealthy';
-
-            if (idleTime > this.maxIdleTime || isZombie) {
-                console.log(`Cleaning up ${isZombie ? 'zombie' : 'idle'} session: ${sessionId} (idle: ${Math.round(idleTime / (1000 * 60))}min)`);
+            if (health.needs_cleanup || !health.healthy) {
+                console.log(`Cleaning up ${!health.healthy ? 'unhealthy' : 'idle'} session: ${sessionId} (idle: ${health.idle_minutes}min)`);
                 try {
                     await this.destroySession(sessionId);
                     cleanedSessions.push(sessionId);
@@ -248,98 +210,42 @@ class TmuxManager {
                 }
             }
         }
-
         return cleanedSessions;
     }
 
     _updateSessionMetadata(sessionId, updates) {
         if (!this.sessionMetadata.has(sessionId)) {
-            this.sessionMetadata.set(sessionId, {
-                purpose: 'unknown',
-                createdAt: Date.now(),
-                lastAccessed: Date.now(),
-                commandCount: 0,
-                healthStatus: 'healthy',
-                workingDirectory: '/tmp'
-            });
+            return; // Don't create metadata for sessions we don't own
         }
-
         const current = this.sessionMetadata.get(sessionId);
         this.sessionMetadata.set(sessionId, { ...current, ...updates });
     }
 
-    async _performHealthCheck(sessionId) {
-        const now = Date.now();
-        this.lastHealthCheck.set(sessionId, now);
-
-        try {
-            // Test session responsiveness with simple command
-            const result = await this._runTmuxCommand([
-                'send-keys', '-t', sessionId, 'echo health_test_ok', 'C-m'
-            ], 3000);
-
-            this._updateSessionMetadata(sessionId, {
-                healthStatus: 'healthy',
-                lastHealthCheck: now
-            });
-        } catch (error) {
-            console.warn(`Health check failed for session ${sessionId}:`, error.message);
-            this._updateSessionMetadata(sessionId, {
-                healthStatus: 'unhealthy',
-                lastHealthCheck: now
-            });
-        }
-    }
-
     startBackgroundCleanup() {
-        // Run cleanup every 10 minutes
         setInterval(async () => {
             try {
-                const cleaned = await this.performLifecycleCleanup();
-                if (cleaned.length > 0) {
-                    console.log(`Background cleanup removed ${cleaned.length} sessions:`, cleaned);
-                }
+                await this.performLifecycleCleanup();
             } catch (error) {
                 console.error('Background cleanup failed:', error.message);
             }
         }, 10 * 60 * 1000);
     }
 
-    async recordCommandExecution(sessionId, workingDir = null) {
+    async recordCommandExecution(sessionId, workingDir) {
         if (this.sessionMetadata.has(sessionId)) {
             const updates = {
                 lastAccessed: Date.now(),
-                commandCount: (this.sessionMetadata.get(sessionId).commandCount || 0) + 1
+                commandCount: (this.sessionMetadata.get(sessionId).commandCount || 0) + 1,
+                workingDirectory: workingDir
             };
-            
-            // If workingDir is not provided, attempt to fetch it
-            if (!workingDir) {
-                try {
-                    const result = await this._runTmuxCommand(['display-message', '-p', '#{pane_current_path}', '-t', sessionId]);
-                    if (result.stdout) {
-                        workingDir = result.stdout.trim();
-                    }
-                } catch (error) {
-                    console.warn(`Could not retrieve working directory for session ${sessionId}:`, error.message);
-                }
-            }
-
-            if (workingDir) {
-                updates.workingDirectory = workingDir;
-            }
             this._updateSessionMetadata(sessionId, updates);
         }
     }
 
-    async cleanupAllSessions() {
-        for (const sessionId of this.sessions.keys()) {
-            await this.destroySession(sessionId);
-        }
-    }
-
-    async capturePaneContent(sessionId, paneId = 0) {
+    async captureWindowContent(sessionId, windowName = 'ui') {
+        const target = `${sessionId}:${windowName}`;
         const result = await this._runTmuxCommand([
-            'capture-pane', '-t', sessionId, '-p'
+            'capture-pane', '-p', '-t', target
         ]);
         return {
             content: result.stdout,
@@ -347,31 +253,30 @@ class TmuxManager {
         };
     }
 
-    async sendKeysToPane(sessionId, keys, paneId = 0, pressEnter = true) {
-        const args = ['send-keys', '-t', sessionId, keys];
+    async sendKeysToWindow(sessionId, windowName, keys, pressEnter = true) {
+        const target = `${sessionId}:${windowName}`;
+        const args = ['send-keys', '-t', target, keys];
         if (pressEnter) {
-            args.push('Enter');
+            args.push('C-m');
         }
         return await this._runTmuxCommand(args);
+    }
+    
+    async getPaneCurrentPath(sessionId, windowName) {
+        const target = `${sessionId}:${windowName}`;
+        const result = await this._runTmuxCommand(['display-message', '-p', '#{pane_current_path}', '-t', target]);
+        return result.stdout.trim();
     }
 
     _runTmuxCommand(args, timeout = 10000) {
         return new Promise((resolve, reject) => {
-            // Validate tmux is available
             if (!args || !Array.isArray(args) || args.length === 0) {
-                reject(new Error('Invalid tmux command arguments'));
-                return;
+                return reject(new Error('Invalid tmux command arguments'));
             }
             
-            const process = spawn('tmux', args, {
-                stdio: ['pipe', 'pipe', 'pipe']
-            });
+            const process = spawn('tmux', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+            let stdout = '', stderr = '', timeoutId = null;
 
-            let stdout = '';
-            let stderr = '';
-            let timeoutId = null;
-            
-            // Set timeout for tmux commands
             if (timeout > 0) {
                 timeoutId = setTimeout(() => {
                     process.kill('SIGTERM');
@@ -379,46 +284,31 @@ class TmuxManager {
                 }, timeout);
             }
 
-            process.stdout.on('data', (data) => {
-                stdout += data.toString();
-            });
-
-            process.stderr.on('data', (data) => {
-                stderr += data.toString();
-            });
+            process.stdout.on('data', (data) => { stdout += data.toString(); });
+            process.stderr.on('data', (data) => { stderr += data.toString(); });
 
             process.on('close', (code) => {
                 if (timeoutId) clearTimeout(timeoutId);
-                
                 if (code === 0) {
                     resolve({ stdout, stderr, code });
                 } else {
-                    // Provide more specific error messages
                     let errorMsg = `tmux command failed with code ${code}`;
-                    if (stderr.includes('no server running')) {
-                        errorMsg += ': No tmux server running. Tmux daemon may need to be started.';
-                    } else if (stderr.includes('no such session')) {
-                        errorMsg += ': Session not found. Use tmux_list_sessions to see available sessions.';
-                    } else if (stderr.includes('session name too long')) {
-                        errorMsg += ': Session name too long. Use shorter session names.';
+                    if (stderr.includes('no server running') || stderr.includes('no such session')) {
+                        errorMsg = `Session not found: ${stderr.trim()}`;
                     } else if (stderr) {
                         errorMsg += `: ${stderr.trim()}`;
                     }
-                    
                     const error = new Error(errorMsg);
                     error.code = code;
                     error.stderr = stderr;
-                    error.command = `tmux ${args.join(' ')}`;
                     reject(error);
                 }
             });
 
             process.on('error', (error) => {
                 if (timeoutId) clearTimeout(timeoutId);
-                
-                // Enhance error message for common issues
                 if (error.code === 'ENOENT') {
-                    error.message = 'tmux command not found. Please install tmux: sudo apt install tmux';
+                    error.message = 'tmux command not found. Please install tmux.';
                 }
                 reject(error);
             });

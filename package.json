@@ -8,7 +8,7 @@
     "persistent-shell-mcp": "./bin/tmux-mcp-server"
   },
   "scripts": {
-    "start": "node src/index.js",
+    "start": "./bin/tmux-mcp-server",
     "test": "node tests/test-simple.js"
   },
   "keywords": [
