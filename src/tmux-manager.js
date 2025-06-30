@@ -43,7 +43,13 @@ class TmuxManager {
             sessionId = `mcp_${randomBytes(4).toString('hex')}`;
         }
 
-        if (await this.sessionExists(sessionId)) {
+        const sessionAlreadyExists = await this._runTmuxCommand(['has-session', '-t', sessionId]).then(() => true).catch(() => false);
+        const sessionIsConfigured = await this.sessionExists(sessionId);
+
+        if (sessionAlreadyExists && !sessionIsConfigured) {
+            console.warn(`Session ${sessionId} exists but is not correctly configured. Destroying and recreating.`);
+            await this.destroySession(sessionId);
+        } else if (sessionAlreadyExists && sessionIsConfigured) {
             console.log(`Session ${sessionId} already exists and is correctly configured.`);
             this._updateSessionMetadata(sessionId, { lastAccessed: Date.now() });
             return sessionId;
@@ -53,23 +59,28 @@ class TmuxManager {
 
         try {
             // 1. Create the session with the 'exec' window
+            console.error(`[createSession] Creating 'exec' window for session ${sessionId}...`);
             await this._runTmuxCommand([
                 'new-session', '-d',
                 '-s', sessionId,
                 '-n', 'exec',
                 '-c', process.cwd() // Start in current working directory
             ]);
+            console.error(`[createSession] 'exec' window created.`);
 
             // 2. Create the 'ui' window
+            console.error(`[createSession] Creating 'ui' window for session ${sessionId}...`);
             await this._runTmuxCommand([
                 'new-window',
                 '-t', `${sessionId}`,
                 '-n', 'ui'
             ]);
+            console.error(`[createSession] 'ui' window created.`);
 
-            // 3. Start the UI log viewer in the 'ui' window
+            // 3. Initialize the UI log file (but keep UI window as normal shell)
+            console.error(`[createSession] Initializing UI log file...`);
             await fs.writeFile(uiLogFile, ''); // Ensure log file is created and empty
-            await this.sendKeysToWindow(sessionId, 'ui', `tail -f ${uiLogFile}`, true);
+            console.error(`[createSession] UI log file initialized.`);
 
             // 4. Set metadata
             const now = Date.now();
@@ -109,6 +120,7 @@ class TmuxManager {
             await this.checkTmuxInstallation();
             const result = await this._runTmuxCommand(['list-windows', '-t', sessionId, '-F', '#{window_name}']);
             const windows = new Set(result.stdout.trim().split('\n'));
+            console.error(`[sessionExists] For session ${sessionId}, found windows: ${Array.from(windows).join(', ')}`);
             
             if (windows.has('ui') && windows.has('exec')) {
                 this._updateSessionMetadata(sessionId, { lastAccessed: Date.now() });
@@ -264,7 +276,7 @@ class TmuxManager {
     
     async getPaneCurrentPath(sessionId, windowName) {
         const target = `${sessionId}:${windowName}`;
-        const result = await this._runTmuxCommand(['display-message', '-p', '#{pane_current_path}', '-t', target]);
+        const result = await this._runTmuxCommand(['display-message', '-p', '-t', target, '-F', '#{pane_current_path}']);
         return result.stdout.trim();
     }
 

@@ -23,12 +23,10 @@ class CommandExecutor {
         }
 
         try {
-            // 2. Construct the robust execution command
-            const prompt = await this._getPrompt(sessionId);
-            const preCommand = `echo "${prompt}${command}" >> ${metadata.uiLogFile}`;
-            await this.tmuxManager.sendKeysToWindow(sessionId, 'exec', preCommand, true);
-
-            const execCommand = `( ${command} 2>&1 | tee -a ${metadata.uiLogFile} > ${captureFile} ); echo "EXIT_CODE:$?" >> ${captureFile}; touch ${doneMarker}`;
+            // 2. Execute command in exec window with output capture
+            const execCommand = `${command} 2>&1 | tee ${captureFile}; echo "EXIT_CODE:$?" >> ${captureFile}; touch ${doneMarker}`;
+            // Add small delay to ensure shell prompt is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
             await this.tmuxManager.sendKeysToWindow(sessionId, 'exec', execCommand, true);
 
             // 3. Wait for completion
@@ -37,6 +35,21 @@ class CommandExecutor {
             // 4. Process results
             const result = await this._readOutput(captureFile);
             const newCwd = await this.tmuxManager.getPaneCurrentPath(sessionId, 'exec');
+
+            // 5. Replay command and output to UI window for clean display
+            const prompt = await this._getPrompt(sessionId);
+            await this.tmuxManager.sendKeysToWindow(sessionId, 'ui', `echo -n "${prompt}"`, true);
+            await this.tmuxManager.sendKeysToWindow(sessionId, 'ui', command, true);
+            if (result.stdout) {
+                // Send output line by line to make it look natural
+                const lines = result.stdout.split('\n');
+                for (const line of lines) {
+                    if (line.trim()) {
+                        await this.tmuxManager.sendKeysToWindow(sessionId, 'ui', `echo "${line}"`, true);
+                    }
+                }
+            }
+
             this.tmuxManager.recordCommandExecution(sessionId, newCwd);
 
             return {
