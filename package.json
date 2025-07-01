@@ -1,15 +1,14 @@
 {
-  "name": "persistent-shell-mcp",
-  "version": "0.2.0",
-  "description": "MCP server that provides persistent shell execution through tmux sessions",
+  "name": "tmux-mcp",
+  "version": "1.3.0",
+  "description": "A simplified and elegant MCP server for persistent shell execution via tmux.",
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "persistent-shell-mcp": "./bin/tmux-mcp-server"
+    "tmux-mcp": "./bin/tmux-mcp-server"
   },
   "scripts": {
-    "start": "./bin/tmux-mcp-server",
-    "test": "node tests/test-simple.js"
+    "start": "./bin/tmux-mcp-server"
   },
   "keywords": [
     "mcp",
@@ -19,7 +18,7 @@
     "command",
     "execution"
   ],
-  "author": "Taylor Tisdial <tnt488@protonmail.com>",
+  "author": "Gemini",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
@@ -30,7 +29,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TNTisdial/persistent-shell-mcp.git"
+    "url": "https://github.com/TNTisdial/tmux-mcp.git"
   },
   "files": [
     "src/",
