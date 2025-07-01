@@ -4,16 +4,16 @@
 
 **This is experimental software intended for testing and development purposes only. Do not use in production environments or with sensitive data.**
 
-A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute shell commands with session persistence, interactive command support, and real-time terminal monitoring.
+A simplified Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute shell commands with session persistence, dual-window architecture, and workspace isolation.
 
 ## Features
 
-- **Persistent Sessions**: Execute commands in tmux sessions that persist across MCP client restarts
-- **Interactive Commands**: Support for interactive commands like `python3`, `ssh`, `mysql` that require user input
-- **Long-running Processes**: Handle servers and background processes without hanging
-- **Real-time Monitoring**: Monitor terminal output in real-time for logs, build processes, etc.
-- **Session Management**: Create, list, destroy, and monitor tmux sessions
-- **Automatic Cleanup**: Intelligent cleanup of idle sessions
+- **Dual-Window Architecture**: Each workspace has two windows - `exec` for command execution and `ui` for clean output display
+- **Persistent Workspaces**: Execute commands in tmux sessions that persist across MCP client restarts
+- **Interactive Process Support**: Handle long-running processes, REPLs, and interactive commands
+- **Workspace Isolation**: Multiple isolated workspaces for different projects or tasks
+- **Clean UI Management**: Separate windows for execution and user-facing output
+- **Automatic Session Management**: Create, destroy, and monitor workspaces seamlessly
 
 ## Installation
 
@@ -30,30 +30,21 @@ A Model Context Protocol (MCP) server that provides persistent shell execution t
 ### Install from npm
 
 ```bash
-npm install -g persistent-shell-mcp
+npm install -g tmux-mcp
 ```
 
 ### Install from source
 
 ```bash
-git clone https://github.com/TNTisdial/persistent-shell-mcp.git
-cd persistent-shell-mcp
+git clone https://github.com/TNTisdial/tmux-mcp.git
+cd tmux-mcp
 npm install
 npm link
 ```
 
-### Automatic tmux Installation Check
-
-The server automatically detects if tmux is installed and provides helpful installation instructions if it's missing. When tmux is not found, you'll see platform-specific installation commands:
-
-- **Ubuntu/Debian**: `sudo apt update && sudo apt install tmux`
-- **macOS**: `brew install tmux`
-- **CentOS/RHEL**: `sudo yum install tmux`
-- **Arch Linux**: `sudo pacman -S tmux`
-
 ## Usage
 
-### Basic MCP Configuration
+### MCP Client Configuration
 
 Add to your MCP client configuration:
 
@@ -61,21 +52,7 @@ Add to your MCP client configuration:
 {
   "mcpServers": {
     "tmux-shell": {
-      "command": "persistent-shell-mcp"
-    }
-  }
-}
-```
-
-### MCP Client Configuration
-
-Add to your MCP client configuration file:
-
-```json
-{
-  "mcpServers": {
-    "tmux-shell": {
-      "command": "persistent-shell-mcp"
+      "command": "tmux-mcp-server"
     }
   }
 }
@@ -85,165 +62,179 @@ Add to your MCP client configuration file:
 
 ### Core Execution Tools
 
-#### `shell_exec`
-Execute commands that complete quickly. Waits for completion and returns full output.
+#### `execute_command`
+Execute commands that complete quickly and return full output. Uses the `exec` window.
 
 ```javascript
-// Good for: ls, grep, build scripts, npm install
-shell_exec("ls -la", "my-project", 30)
+execute_command({
+  command: "ls -la", 
+  workspace_id: "my-project"
+})
 ```
 
-#### `shell_exec_interactive`
-Execute commands and return immediately with terminal snapshot. Perfect for long-running processes.
+#### `start_process`
+Start long-running or interactive processes. Can target either window:
+- `exec` window (default): For background processes
+- `ui` window: For interactive applications that need user visibility
 
 ```javascript
-// Good for: servers, interactive commands, log monitoring
-shell_exec_interactive("python -m http.server 8000", "dev-server", 100)
+start_process({
+  command: "python3", 
+  workspace_id: "dev",
+  target_window: "ui"  // For interactive apps like vim, python REPL
+})
 ```
 
-#### `tmux_send_input`
-Send input to interactive commands waiting for user input.
+#### `get_output`
+Capture current terminal output from either window:
+- `ui` window (default): Clean user-facing output
+- `exec` window: Raw shell with all commands
 
 ```javascript
-// Respond to prompts, send commands to Python REPL, etc.
-tmux_send_input("print('Hello World')", "python-session", true)
+get_output({
+  workspace_id: "dev",
+  window_name: "ui"  // or "exec" for raw output
+})
 ```
 
-#### `tmux_capture_terminal`
-Check current terminal state without executing commands.
+#### `send_input`
+Send input to running processes in either window.
 
 ```javascript
-// Monitor server logs, check build progress, see prompts
-tmux_capture_terminal("dev-server", 0)
+send_input({
+  text: "print('Hello World')", 
+  workspace_id: "dev",
+  target_window: "ui"
+})
 ```
 
-### Session Management Tools
+#### `stop_process`
+Stop the currently running process in the exec window (sends Ctrl+C).
 
-#### `tmux_list_sessions`
-List all active tmux sessions.
+```javascript
+stop_process({workspace_id: "dev"})
+```
 
-#### `tmux_create_session`
-Create a new tmux session explicitly.
+### Workspace Management Tools
 
-#### `tmux_destroy_session`
-Destroy a tmux session and clean up resources.
+#### `create_workspace`
+Create a new isolated workspace with dual windows.
 
-#### `tmux_session_exists`
-Check if a session exists and is responsive.
+#### `destroy_workspace`
+Destroy a workspace and all its processes.
 
-#### `tmux_session_info`
-Get detailed health and lifecycle information about a session.
+#### `list_workspaces`
+List all active workspaces.
 
-#### `tmux_cleanup_sessions`
-Automatically clean up idle and unhealthy sessions.
+## Architecture
+
+### Dual-Window Design
+
+Each workspace consists of two tmux windows:
+
+1. **`exec` window**: Raw shell for command execution
+   - Handles all command execution
+   - Shows full shell history and prompts
+   - Used for background processes
+
+2. **`ui` window**: Clean output display
+   - Shows clean output for user interaction
+   - Used for interactive applications
+   - Provides better user experience
+
+### Workspace Isolation
+
+- Each workspace is a separate tmux session
+- Independent working directories and environments
+- Processes don't interfere between workspaces
+- Clean separation of different projects/tasks
 
 ## Common Workflows
 
-### Running a Development Server
+### Quick Command Execution
 
 ```javascript
-// Start the server (doesn't hang)
-shell_exec_interactive("npm run dev", "dev-server")
-
-// Monitor the server logs
-tmux_capture_terminal("dev-server")
-
-// Stop the server
-tmux_send_input("C-c", "dev-server", false)
+// Execute and get results immediately
+execute_command({command: "npm install", workspace_id: "frontend"})
+execute_command({command: "git status", workspace_id: "frontend"})
 ```
 
-### Interactive Python Development
+### Interactive Development
 
 ```javascript
-// Start Python REPL
-shell_exec_interactive("python3", "python-dev")
+// Start Python REPL in UI window
+start_process({
+  command: "python3", 
+  workspace_id: "python-dev",
+  target_window: "ui"
+})
 
 // Send Python commands
-tmux_send_input("import numpy as np", "python-dev")
-tmux_send_input("print(np.array([1, 2, 3]))", "python-dev")
+send_input({text: "import os", workspace_id: "python-dev", target_window: "ui"})
+send_input({text: "print(os.getcwd())", workspace_id: "python-dev", target_window: "ui"})
 
-// Exit Python
-tmux_send_input("exit()", "python-dev")
+// Check output
+get_output({workspace_id: "python-dev", window_name: "ui"})
 ```
 
-### Log Monitoring
+### Background Process Management
 
 ```javascript
-// Start monitoring logs
-shell_exec_interactive("tail -f /var/log/nginx/access.log", "log-monitor")
+// Start server in background
+start_process({command: "npm run dev", workspace_id: "server"})
 
-// Check for new entries
-tmux_capture_terminal("log-monitor")
+// Check server status
+get_output({workspace_id: "server", window_name: "exec"})
 
-// Stop monitoring
-tmux_send_input("C-c", "log-monitor", false)
+// Stop server when done
+stop_process({workspace_id: "server"})
 ```
 
-### Build Process Monitoring
+### Multi-Project Development
 
 ```javascript
-// Start build (doesn't hang on long builds)
-shell_exec_interactive("npm run build", "build-process")
+// Frontend workspace
+create_workspace({workspace_id: "frontend"})
+execute_command({command: "cd /path/to/frontend", workspace_id: "frontend"})
 
-// Check build progress
-tmux_capture_terminal("build-process")
+// Backend workspace  
+create_workspace({workspace_id: "backend"})
+execute_command({command: "cd /path/to/backend", workspace_id: "backend"})
 
-// Build completes automatically, check final status
-tmux_capture_terminal("build-process")
+// Database workspace
+create_workspace({workspace_id: "database"})
+start_process({command: "mysql -u root -p", workspace_id: "database", target_window: "ui"})
 ```
 
 ## Key Advantages
 
-### Never Hangs on Long-running Commands
-Unlike traditional shell tools that hang on servers or interactive commands, this implementation:
-- Returns immediately with terminal snapshots
-- Allows monitoring of long-running processes
-- Supports proper process termination
+### Simplified Architecture
+- Clean dual-window design vs complex multi-tool approaches
+- Intuitive separation between execution and display
+- Reduced complexity while maintaining full functionality
 
 ### Session Persistence
-- Sessions survive MCP client restarts
+- Workspaces survive MCP client restarts
 - Working directory and environment preserved
-- Multiple sessions for different projects
+- Long-running processes continue uninterrupted
 
 ### Interactive Command Support
-- Handle prompts and user input
-- Support for REPLs (Python, Node.js, etc.)
-- SSH connections and database clients
+- Proper handling of REPLs and interactive tools
+- Real-time input/output interaction
+- Support for complex interactive workflows
 
-## Architecture
-
-The server uses tmux's `capture-pane` functionality instead of temporary files, providing:
-- Real-time terminal content capture
-- No file system dependencies
-- Proper handling of terminal control sequences
-- Support for interactive applications
-
-## Development
-
-### Running Tests
-
-```bash
-npm test
-```
-
-### Development Mode
-
-```bash
-npm start
-```
-
-### Project Structure
+## Project Structure
 
 ```
-tmux-mcp-server/
+tmux-mcp/
 ├── src/
-│   ├── server.js           # Main MCP server and tool definitions
-│   ├── tmux-manager.js     # Tmux session management
-│   ├── command-executor.js # Command execution logic
+│   ├── server.js          # Main MCP server and tool definitions
+│   ├── tmux-manager.js    # Tmux session and window management
 │   └── index.js           # Entry point
 ├── bin/
 │   └── tmux-mcp-server    # Executable script
-└── package.json
+├── package.json
+└── README.md
 ```
 
 ## Troubleshooting
@@ -254,19 +245,24 @@ Error: tmux command not found
 ```
 Install tmux: `sudo apt install tmux` (Ubuntu/Debian) or `brew install tmux` (macOS)
 
-### No Sessions Available
+### Workspace Creation Failed
 ```
-Error: No tmux server running
+Error: Failed to create workspace
 ```
-Create your first session: `tmux_create_session("default")`
+Check if tmux server is running and you have permissions to create sessions
 
-### Commands Timeout
+### Commands Not Responding
 ```
-Error: Command timed out
+Check workspace status with get_output
 ```
-Use `shell_exec_interactive` for long-running commands instead of `shell_exec`
+Use `get_output` with `window_name: "exec"` to see raw shell state
+
+### Process Stuck
+```
+Use stop_process to send Ctrl+C
+```
+Send interrupt signal with `stop_process` to terminate hanging processes
 
 ## License
 
 MIT
-
