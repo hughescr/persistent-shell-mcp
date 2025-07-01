@@ -206,22 +206,6 @@ create_workspace({workspace_id: "database"})
 start_process({command: "mysql -u root -p", workspace_id: "database", target_window: "ui"})
 ```
 
-## Key Advantages
-
-### Simplified Architecture
-- Clean dual-window design vs complex multi-tool approaches
-- Intuitive separation between execution and display
-- Reduced complexity while maintaining full functionality
-
-### Session Persistence
-- Workspaces survive MCP client restarts
-- Working directory and environment preserved
-- Long-running processes continue uninterrupted
-
-### Interactive Command Support
-- Proper handling of REPLs and interactive tools
-- Real-time input/output interaction
-- Support for complex interactive workflows
 
 ## Project Structure
 
