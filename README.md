@@ -30,14 +30,14 @@ A simplified Model Context Protocol (MCP) server that provides persistent shell 
 ### Install from npm
 
 ```bash
-npm install -g tmux-mcp
+npm install -g tmux-mcp-server
 ```
 
 ### Install from source
 
 ```bash
-git clone https://github.com/TNTisdial/tmux-mcp.git
-cd tmux-mcp
+git clone https://github.com/TNTisdial/persistent-shell-mcp.git
+cd persistent-shell-mcp
 npm install
 npm link
 ```
