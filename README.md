@@ -1,11 +1,8 @@
-# Tmux MCP Server
-
-⚠️ **WARNING: EXPERIMENTAL SOFTWARE - NOT FOR PRODUCTION USE** ⚠️
-
 **This is experimental software intended for testing and development purposes only. Do not use in production environments or with sensitive data.**
 
-A simplified Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute shell commands with session persistence, dual-window architecture, and workspace isolation.
-
+A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute commands in a persistent shell. 
+This unlocks a lot of possiblities, such as Agent Orchestration...
+![final_optimized](https://github.com/user-attachments/assets/f5bf2be6-f87f-4003-a13a-cec76739d94d)
 ## Features
 
 - **Dual-Window Architecture**: Each workspace has two windows - `exec` for command execution and `ui` for clean output display
