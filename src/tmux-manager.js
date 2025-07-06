@@ -62,7 +62,7 @@ class TmuxManager {
         if(await this.sessionExists(sessionId)) {
             return;
         }
-        await this._runTmuxCommand(['new-session', '-d', '-t', sessionId, '-s' `${sessionId}-MCP`]);
+        await this._runTmuxCommand(['new-session', '-d', '-t', sessionId, '-s', `${sessionId}-MCP`]);
         await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'exec']);
         await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'ui']);
         
