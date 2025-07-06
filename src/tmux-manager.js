@@ -58,11 +58,7 @@ class TmuxManager {
     }
 
     async createSession(sessionId = 'default') {
-        if (await this.sessionExists(sessionId)) {
-            return; // Session already exists
-        }
-
-        await this._runTmuxCommand(['new-session', '-d', '-s', sessionId, '-n', 'exec']);
+        await this._runTmuxCommand(['new-session', '-A', '-d', '-s', sessionId, '-n', 'exec']);
         await this._runTmuxCommand(['new-window', '-t', `${sessionId}`, '-n', 'ui']);
         
         this.sessionMetadata.set(sessionId, {
@@ -75,7 +71,8 @@ class TmuxManager {
         if (!await this.sessionExists(sessionId)) {
             return;
         }
-        await this._runTmuxCommand(['kill-session', '-t', sessionId]);
+        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}:ui`]);
+        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}:exec`]);
         this.sessionMetadata.delete(sessionId);
     }
 
