@@ -50,7 +50,7 @@ class TmuxManager {
 
     async sessionExists(sessionId) {
         try {
-            await this._runTmuxCommand(['has-session', '-t', sessionId]);
+            await this._runTmuxCommand(['has-session', '-t', `${sessionId}-MCP`]);
             return true;
         } catch (error) {
             return false;
@@ -58,12 +58,12 @@ class TmuxManager {
     }
 
     async createSession(sessionId = 'default') {
+        // If the session doesn't exist, then create it, adding it to the named group
         if(!await this.sessionExists(sessionId)) {
-            await this._runTmuxCommand(['new-session', '-A', '-d', '-s', sessionId, '-n', 'exec']);
-        } else {
-            await this._runTmuxCommand(['new-window', '-t', `${sessionId}`, '-n', 'exec']);
+            await this._runTmuxCommand(['new-session', '-A', '-d', '-t', sessionId, '-s' `${sessionId}-MCP`]);
         }
-        await this._runTmuxCommand(['new-window', '-t', `${sessionId}`, '-n', 'ui']);
+        await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'exec']);
+        await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'ui']);
         
         this.sessionMetadata.set(sessionId, {
             id: sessionId,
@@ -75,8 +75,9 @@ class TmuxManager {
         if (!await this.sessionExists(sessionId)) {
             return;
         }
-        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}:ui`]);
-        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}:exec`]);
+        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}-MCP:ui`]);
+        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}-MCP:exec`]);
+        await this._runTmuxCommand(['kill-session', '-t' `${sessionId}-MCP`]);
         this.sessionMetadata.delete(sessionId);
     }
 
@@ -86,7 +87,7 @@ class TmuxManager {
     }
 
     async sendKeys(sessionId, windowName, keys, pressEnter = true) {
-        const target = `${sessionId}:${windowName}`;
+        const target = `${sessionId}-MCP:${windowName}`;
         const args = ['send-keys', '-t', target, ...keys];
         if (pressEnter) {
             args.push('C-m');
@@ -95,7 +96,7 @@ class TmuxManager {
     }
 
     async capturePane(sessionId, windowName = 'ui') {
-        const target = `${sessionId}:${windowName}`;
+        const target = `${sessionId}-MCP:${windowName}`;
         const result = await this._runTmuxCommand(['capture-pane', '-p', '-t', target]);
         return result.stdout;
     }
