@@ -175,7 +175,7 @@ class TmuxMcpServer {
 
         if (name === 'stop_process') {
           const { workspace_id } = args;
-          await this.tmuxManager.sendKeys(workspace_id, 'exec', 'C-c', false);
+          await this.tmuxManager.interrupt(workspace_id, 'exec');
           return { content: [{ type: 'text', text: 'Sent Ctrl+C to exec window.' }] };
         }
 
