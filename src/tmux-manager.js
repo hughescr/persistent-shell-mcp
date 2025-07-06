@@ -59,9 +59,10 @@ class TmuxManager {
 
     async createSession(sessionId = 'default') {
         // If the session doesn't exist, then create it, adding it to the named group
-        if(!await this.sessionExists(sessionId)) {
-            await this._runTmuxCommand(['new-session', '-A', '-d', '-t', sessionId, '-s' `${sessionId}-MCP`]);
+        if(await this.sessionExists(sessionId)) {
+            return;
         }
+        await this._runTmuxCommand(['new-session', '-A', '-d', '-t', sessionId, '-s' `${sessionId}-MCP`]);
         await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'exec']);
         await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'ui']);
         
