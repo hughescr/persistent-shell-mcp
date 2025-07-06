@@ -78,7 +78,7 @@ class TmuxManager {
         }
         await this._runTmuxCommand(['kill-window', '-t', `${sessionId}-MCP:ui`]);
         await this._runTmuxCommand(['kill-window', '-t', `${sessionId}-MCP:exec`]);
-        await this._runTmuxCommand(['kill-session', '-t' `${sessionId}-MCP`]);
+        await this._runTmuxCommand(['kill-session', '-t', `${sessionId}-MCP`]);
         this.sessionMetadata.delete(sessionId);
     }
 
