@@ -57,55 +57,127 @@ class TmuxManager {
         }
     }
 
+    async windowExists(sessionId, windowName) {
+        try {
+            // Use list-windows to check if window exists
+            const result = await this._runTmuxCommand(['list-windows', '-t', `${sessionId}-MCP`, '-F', '#W']);
+            const windows = result.stdout.trim().split('\n').filter(Boolean);
+            return windows.includes(windowName);
+        } catch (error) {
+            return false;
+        }
+    }
+
     async createSession(sessionId = 'default') {
-        // If the session doesn't exist, then create it, adding it to the named group
-        if(await this.sessionExists(sessionId)) {
+        // If the session doesn't exist, create it with a main window
+        if (await this.sessionExists(sessionId)) {
             return;
         }
-        await this._runTmuxCommand(['new-session', '-d', '-t', sessionId, '-s', `${sessionId}-MCP`]);
-        await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'exec']);
-        await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', 'ui']);
+        
+        // Create session with a main window
+        await this._runTmuxCommand(['new-session', '-d', '-s', `${sessionId}-MCP`, '-n', 'main']);
         
         this.sessionMetadata.set(sessionId, {
             id: sessionId,
             created: Date.now(),
+            windows: ['main']
         });
+    }
+
+    async createWindow(sessionId, windowName) {
+        // Ensure session exists
+        await this.createSession(sessionId);
+        
+        // Check if window already exists
+        if (await this.windowExists(sessionId, windowName)) {
+            return;
+        }
+        
+        // Create new window
+        await this._runTmuxCommand(['new-window', '-t', `${sessionId}-MCP`, '-n', windowName]);
+        
+        // Update metadata
+        const metadata = this.sessionMetadata.get(sessionId);
+        if (metadata && !metadata.windows.includes(windowName)) {
+            metadata.windows.push(windowName);
+        }
     }
 
     async destroySession(sessionId) {
         if (!await this.sessionExists(sessionId)) {
             return;
         }
-        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}-MCP:ui`]);
-        await this._runTmuxCommand(['kill-window', '-t', `${sessionId}-MCP:exec`]);
         await this._runTmuxCommand(['kill-session', '-t', `${sessionId}-MCP`]);
         this.sessionMetadata.delete(sessionId);
     }
 
     async listSessions() {
-        const result = await this._runTmuxCommand(['ls', '-F', '#S']);
-        return result.stdout
-            .trim()
-            .split('\n')
-            .filter(name => name.endsWith('-MCP')) // only list those created by MCP
-            .map(name => name.slice(0, -4)); // remove '-MCP' suffix
+        try {
+            const result = await this._runTmuxCommand(['ls', '-F', '#S']);
+            return result.stdout
+                .trim()
+                .split('\n')
+                .filter(name => name.endsWith('-MCP'))
+                .map(name => name.slice(0, -4))
+                .filter(Boolean);
+        } catch (error) {
+            // No sessions
+            return [];
+        }
     }
 
-    async interrupt(sessionId, windowName) {
-        const target = `${sessionId}-MCP:${windowName}`;
-        const args = ['send-keys', '-t', target, 'C-c'];
-        return await this._runTmuxCommand(args);
+    async listWindows(sessionId) {
+        try {
+            const result = await this._runTmuxCommand(['list-windows', '-t', `${sessionId}-MCP`, '-F', '#W']);
+            return result.stdout
+                .trim()
+                .split('\n')
+                .filter(Boolean);
+        } catch (error) {
+            return [];
+        }
     }
-    
+
+    async listWorkspaces() {
+        const sessions = await this.listSessions();
+        const workspaces = [];
+        
+        for (const sessionId of sessions) {
+            const windows = await this.listWindows(sessionId);
+            workspaces.push({
+                workspace_id: sessionId,
+                windows: windows
+            });
+        }
+        
+        return workspaces;
+    }
+
     async sendKeys(sessionId, windowName, keys) {
+        // Ensure window exists
+        await this.createWindow(sessionId, windowName);
+        
         const target = `${sessionId}-MCP:${windowName}`;
         const args = ['send-keys', '-t', target, ...keys];
         return await this._runTmuxCommand(args);
     }
 
-    async capturePane(sessionId, windowName = 'ui') {
+    async capturePane(sessionId, windowName = 'main', lines) {
+        // Ensure window exists
+        await this.createWindow(sessionId, windowName);
+        
         const target = `${sessionId}-MCP:${windowName}`;
-        const result = await this._runTmuxCommand(['capture-pane', '-p', '-t', target]);
+        const args = ['capture-pane', '-p', '-t', target];
+        
+        if (lines !== undefined) {
+            // Capture specific number of lines from scrollback
+            args.push('-S', `-${lines}`);
+        } else {
+            // Capture all scrollback
+            args.push('-S', '-');
+        }
+        
+        const result = await this._runTmuxCommand(args);
         return result.stdout;
     }
 }

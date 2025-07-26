@@ -1,16 +1,15 @@
 **This is experimental software intended for testing and development purposes only. Do not use in production environments or with sensitive data.**
 
-A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute commands in a persistent shell. 
-This unlocks a lot of possiblities, such as Agent Orchestration...
-![final_optimized](https://github.com/user-attachments/assets/f5bf2be6-f87f-4003-a13a-cec76739d94d)
+A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute commands in persistent shells that maintain state across multiple interactions.
+
 ## Features
 
-- **Dual-Window Architecture**: Each workspace has two windows - `exec` for command execution and `ui` for clean output display
-- **Persistent Workspaces**: Execute commands in tmux sessions that persist across MCP client restarts
+- **Persistent Shell Sessions**: Execute commands in tmux sessions that persist across MCP client restarts
+- **Multiple Workspaces**: Create isolated workspaces for different projects or tasks
+- **Flexible Window Management**: Organize commands in named windows within workspaces
 - **Interactive Process Support**: Handle long-running processes, REPLs, and interactive commands
-- **Workspace Isolation**: Multiple isolated workspaces for different projects or tasks
-- **Clean UI Management**: Separate windows for execution and user-facing output
-- **Automatic Session Management**: Create, destroy, and monitor workspaces seamlessly
+- **Output Search**: Search through terminal output with regex patterns and context
+- **Non-blocking Execution**: All commands run asynchronously, allowing parallel operations
 
 ## Installation
 
@@ -57,166 +56,175 @@ Add to your MCP client configuration:
 
 ## Available Tools
 
-### Core Execution Tools
-
-#### `execute_command`
-Execute commands that complete quickly and return full output. Uses the `exec` window.
+### `run_command`
+Start a command in a tmux window and return immediately.
 
 ```javascript
-execute_command({
-  command: "ls -la", 
-  workspace_id: "my-project"
+run_command({
+  command: "npm run dev",
+  workspace_id: "my-project",  // optional, defaults to "default"
+  window_name: "server"        // optional, defaults to "main"
 })
 ```
 
-#### `start_process`
-Start long-running or interactive processes. Can target either window:
-- `exec` window (default): For background processes
-- `ui` window: For interactive applications that need user visibility
+To stop a running command, use `send_keys` with `["C-c"]`.
 
-```javascript
-start_process({
-  command: "python3", 
-  workspace_id: "dev",
-  target_window: "ui"  // For interactive apps like vim, python REPL
-})
-```
+### `get_output`
+Capture terminal output with two modes:
 
-#### `get_output`
-Capture current terminal output from either window:
-- `ui` window (default): Clean user-facing output
-- `exec` window: Raw shell with all commands
-
+**Lines mode** - Get a specific number of lines:
 ```javascript
 get_output({
-  workspace_id: "dev",
-  window_name: "ui"  // or "exec" for raw output
+  workspace_id: "my-project",
+  window_name: "server",
+  lines: 50  // optional, defaults to visible screen
 })
 ```
 
-#### `send_input`
-Send input to running processes in either window.
+**Search mode** - Search for patterns in output:
+```javascript
+get_output({
+  workspace_id: "my-project",
+  window_name: "server",
+  search: {
+    pattern: "error|warning",     // JavaScript regex (no delimiters)
+    context_lines: 2,            // lines before/after matches (default: 2)
+    include_line_numbers: true   // include absolute line numbers (default: true)
+  }
+})
+```
+
+### `send_input`
+Send text to a window (automatically appends Enter).
 
 ```javascript
 send_input({
-  text: "print('Hello World')", 
-  workspace_id: "dev",
-  target_window: "ui"
+  text: "print('Hello, World!')",
+  workspace_id: "my-project",
+  window_name: "python"
 })
 ```
 
-#### `stop_process`
-Stop the currently running process in the exec window (sends Ctrl+C).
+### `send_keys`
+Send special key sequences using tmux syntax.
 
 ```javascript
-stop_process({workspace_id: "dev"})
+send_keys({
+  keys: ["C-c"],  // Ctrl+C to interrupt
+  workspace_id: "my-project",
+  window_name: "server"
+})
 ```
 
-### Workspace Management Tools
+Common keys: `C-c` (interrupt), `C-d` (EOF), `Up`/`Down` (history), `Tab` (completion)
 
-#### `create_workspace`
-Create a new isolated workspace with dual windows.
+### `create_workspace`
+Create a new workspace with a "main" window.
 
-#### `destroy_workspace`
-Destroy a workspace and all its processes.
+```javascript
+create_workspace({
+  workspace_id: "new-project"
+})
+```
 
-#### `list_workspaces`
-List all active workspaces.
+### `destroy_workspace`
+Destroy a workspace and all its windows.
 
-## Architecture
+```javascript
+destroy_workspace({
+  workspace_id: "old-project"
+})
+```
 
-### Dual-Window Design
+### `list_workspaces`
+List all active workspaces and their windows.
 
-Each workspace consists of two tmux windows:
+```javascript
+list_workspaces()
+// Returns: "project1: main, server, database\nproject2: main"
+```
 
-1. **`exec` window**: Raw shell for command execution
-   - Handles all command execution
-   - Shows full shell history and prompts
-   - Used for background processes
+## Available Resources
 
-2. **`ui` window**: Clean output display
-   - Shows clean output for user interaction
-   - Used for interactive applications
-   - Provides better user experience
+The server provides two MCP resources with helpful reference information:
 
-### Workspace Isolation
+### `tmux://keys-reference`
+Common tmux key sequences and their meanings, including:
+- Control keys (C-c, C-d, C-z)
+- Navigation keys (arrows, page up/down)
+- Other special keys
 
-- Each workspace is a separate tmux session
-- Independent working directories and environments
-- Processes don't interfere between workspaces
-- Clean separation of different projects/tasks
+### `tmux://common-patterns`
+Common usage patterns and examples for:
+- Running commands
+- Interactive sessions
+- Monitoring long-running processes
+- Searching output
+- Managing multiple tasks
 
 ## Common Workflows
 
-### Quick Command Execution
+### Running a Development Server
 
 ```javascript
-// Execute and get results immediately
-execute_command({command: "npm install", workspace_id: "frontend"})
-execute_command({command: "git status", workspace_id: "frontend"})
-```
+// Start the server
+run_command({ command: "npm run dev", workspace_id: "myapp", window_name: "server" })
 
-### Interactive Development
+// Check server output
+get_output({ workspace_id: "myapp", window_name: "server" })
 
-```javascript
-// Start Python REPL in UI window
-start_process({
-  command: "python3", 
-  workspace_id: "python-dev",
-  target_window: "ui"
+// Search for errors
+get_output({ 
+  workspace_id: "myapp", 
+  window_name: "server",
+  search: { pattern: "error|failed", context_lines: 3 }
 })
 
+// Stop the server
+send_keys({ keys: ["C-c"], workspace_id: "myapp", window_name: "server" })
+```
+
+### Interactive Python Session
+
+```javascript
+// Start Python REPL
+run_command({ command: "python3", workspace_id: "data", window_name: "python" })
+
 // Send Python commands
-send_input({text: "import os", workspace_id: "python-dev", target_window: "ui"})
-send_input({text: "print(os.getcwd())", workspace_id: "python-dev", target_window: "ui"})
+send_input({ text: "import pandas as pd", workspace_id: "data", window_name: "python" })
+send_input({ text: "df = pd.read_csv('data.csv')", workspace_id: "data", window_name: "python" })
 
 // Check output
-get_output({workspace_id: "python-dev", window_name: "ui"})
+get_output({ workspace_id: "data", window_name: "python" })
+
+// Exit Python
+send_keys({ keys: ["C-d"], workspace_id: "data", window_name: "python" })
 ```
 
-### Background Process Management
+### Managing Multiple Projects
 
 ```javascript
-// Start server in background
-start_process({command: "npm run dev", workspace_id: "server"})
+// Create workspaces for different projects
+create_workspace({ workspace_id: "frontend" })
+create_workspace({ workspace_id: "backend" })
+create_workspace({ workspace_id: "database" })
 
-// Check server status
-get_output({workspace_id: "server", window_name: "exec"})
+// Run commands in each
+run_command({ command: "npm run dev", workspace_id: "frontend" })
+run_command({ command: "python app.py", workspace_id: "backend" })
+run_command({ command: "docker compose up", workspace_id: "database" })
 
-// Stop server when done
-stop_process({workspace_id: "server"})
+// Check what's running
+list_workspaces()
 ```
 
-### Multi-Project Development
+## Architecture
 
-```javascript
-// Frontend workspace
-create_workspace({workspace_id: "frontend"})
-execute_command({command: "cd /path/to/frontend", workspace_id: "frontend"})
-
-// Backend workspace  
-create_workspace({workspace_id: "backend"})
-execute_command({command: "cd /path/to/backend", workspace_id: "backend"})
-
-// Database workspace
-create_workspace({workspace_id: "database"})
-start_process({command: "mysql -u root -p", workspace_id: "database", target_window: "ui"})
-```
-
-
-## Project Structure
-
-```
-tmux-mcp/
-├── src/
-│   ├── server.js          # Main MCP server and tool definitions
-│   ├── tmux-manager.js    # Tmux session and window management
-│   └── index.js           # Entry point
-├── bin/
-│   └── tmux-mcp-server    # Executable script
-├── package.json
-└── README.md
-```
+Each workspace is a tmux session that can contain multiple named windows. This allows you to:
+- Organize related commands together
+- Maintain separate environments for different projects
+- Keep processes running independently
+- Switch between tasks without losing state
 
 ## Troubleshooting
 
@@ -224,25 +232,19 @@ tmux-mcp/
 ```
 Error: tmux command not found
 ```
-Install tmux: `sudo apt install tmux` (Ubuntu/Debian) or `brew install tmux` (macOS)
+Install tmux using your system's package manager.
 
-### Workspace Creation Failed
-```
-Error: Failed to create workspace
-```
-Check if tmux server is running and you have permissions to create sessions
+### Command Not Responding
+Use `get_output` to check the current state, then `send_keys(['C-c'])` to interrupt if needed.
 
-### Commands Not Responding
+### Checking Process State
+Use `get_output` with search to look for specific patterns:
+```javascript
+get_output({
+  workspace_id: "myapp",
+  search: { pattern: "listening on|started|ready" }
+})
 ```
-Check workspace status with get_output
-```
-Use `get_output` with `window_name: "exec"` to see raw shell state
-
-### Process Stuck
-```
-Use stop_process to send Ctrl+C
-```
-Send interrupt signal with `stop_process` to terminate hanging processes
 
 ## License
 
