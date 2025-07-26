@@ -8,7 +8,9 @@
     "tmux-mcp-server": "./bin/tmux-mcp-server"
   },
   "scripts": {
-    "start": "./bin/tmux-mcp-server"
+    "start": "./bin/tmux-mcp-server",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage"
   },
   "keywords": [
     "mcp",
