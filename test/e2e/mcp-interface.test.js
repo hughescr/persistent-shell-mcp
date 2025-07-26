@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll, spyOn } from 'bun:test';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -53,6 +53,7 @@ describe('MCP Interface E2E Tests', () => {
   let serverProcess;
   let messages = [];
   let messageId = 1;
+  let consoleErrorSpy;
   
   beforeAll(async () => {
     await cleanupTmuxSessions();
@@ -65,6 +66,9 @@ describe('MCP Interface E2E Tests', () => {
   beforeEach(() => {
     messages = [];
     messageId = 1;
+    
+    // Mock console.error to suppress error output during tests
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
     
     // Start the MCP server
     serverProcess = spawn('bun', [serverPath], {
@@ -100,6 +104,9 @@ describe('MCP Interface E2E Tests', () => {
         serverProcess.on('close', resolve);
       });
     }
+    
+    // Restore console.error
+    consoleErrorSpy.mockRestore();
   });
   
   function sendRequest(method, params = {}) {
@@ -379,8 +386,9 @@ describe('MCP Interface E2E Tests', () => {
       arguments: {}
     });
     
-    expect(response.error).toBeDefined();
-    expect(response.error.message).toContain('Unknown tool: unknown_tool');
+    // The server returns content with error message, not an error object
+    expect(response.result?.content).toBeDefined();
+    expect(response.result.content[0].text).toContain('Error: Unknown tool: unknown_tool');
   });
   
   test('handles invalid resource URI', async () => {

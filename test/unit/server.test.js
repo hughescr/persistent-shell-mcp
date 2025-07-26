@@ -4,8 +4,11 @@ import TmuxMcpServer from '../../src/server.js';
 describe('TmuxMcpServer', () => {
   let server;
   let mockTmuxManager;
+  let consoleErrorSpy;
   
   beforeEach(() => {
+    // Mock console.error to suppress error output during tests
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
     // Create a mock TmuxManager
     mockTmuxManager = {
       createSession: mock(),
@@ -28,6 +31,7 @@ describe('TmuxMcpServer', () => {
   
   afterEach(() => {
     mock.restore();
+    consoleErrorSpy.mockRestore();
   });
   
   describe('constructor', () => {
