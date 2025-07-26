@@ -84,7 +84,11 @@ class TmuxManager {
 
     async listSessions() {
         const result = await this._runTmuxCommand(['ls', '-F', '#S']);
-        return result.stdout.trim().split('\n').filter(Boolean);
+        return result.stdout
+            .trim()
+            .split('\n')
+            .filter(name => name.endsWith('-MCP')) // only list those created by MCP
+            .map(name => name.slice(0, -4)); // remove '-MCP' suffix
     }
 
     async interrupt(sessionId, windowName) {
