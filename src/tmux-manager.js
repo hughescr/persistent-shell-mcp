@@ -97,12 +97,9 @@ class TmuxManager {
         return await this._runTmuxCommand(args);
     }
     
-    async sendKeys(sessionId, windowName, keys, pressEnter = true) {
+    async sendKeys(sessionId, windowName, keys) {
         const target = `${sessionId}-MCP:${windowName}`;
         const args = ['send-keys', '-t', target, ...keys];
-        if (pressEnter) {
-            args.push('C-m');
-        }
         return await this._runTmuxCommand(args);
     }
 

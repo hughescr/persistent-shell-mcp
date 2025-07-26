@@ -85,11 +85,11 @@ class TmuxMcpServer {
           },
           {
             name: 'send_input',
-            description: 'Send input to a running process in a specified window.',
+            description: 'Send text input to a running process. The text is sent character by character and automatically followed by an appended Enter (C-m). Use send_keys for special key combinations.',
             inputSchema: {
               type: 'object',
               properties: {
-                text: { type: 'string', description: 'Text to send' },
+                text: { type: 'string', description: 'Text to send (will be sent character by character, followed by an extra appended Enter)' },
                 workspace_id: { type: 'string', default: 'default' },
                 target_window: {
                   type: 'string',
@@ -98,6 +98,27 @@ class TmuxMcpServer {
                 },
               },
               required: ['text']
+            }
+          },
+          {
+            name: 'send_keys',
+            description: 'Send specific key combinations to a running process. Supports tmux key notation like C-c (Ctrl+C), C-d (Ctrl+D), Up, Down, Enter, Escape, etc. See tmux send-keys documentation for full syntax.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                keys: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Array of keys to send. Examples: ["C-c"] for Ctrl+C, ["Escape"], ["Up", "Up", "Enter"] for arrow keys, ["C-a", "x"] for tmux commands'
+                },
+                workspace_id: { type: 'string', default: 'default' },
+                target_window: {
+                  type: 'string',
+                  description: 'Window to send keys to: \'ui\' or \'exec\'.',
+                  default: 'exec'
+                },
+              },
+              required: ['keys']
             }
           },
           {
@@ -148,7 +169,7 @@ class TmuxMcpServer {
         if (name === 'execute_command') {
           const { command, workspace_id } = args;
           await this.tmuxManager.createSession(workspace_id);
-          await this.tmuxManager.sendKeys(workspace_id, 'exec', command, true);
+          await this.tmuxManager.sendKeys(workspace_id, 'exec', [...command, 'C-m']);
           await new Promise(resolve => setTimeout(resolve, 500));
           const output = await this.tmuxManager.capturePane(workspace_id, 'exec');
           return { content: [{ type: 'text', text: output }] };
@@ -157,7 +178,7 @@ class TmuxMcpServer {
         if (name === 'start_process') {
           const { command, workspace_id, target_window } = args;
           await this.tmuxManager.createSession(workspace_id);
-          await this.tmuxManager.sendKeys(workspace_id, target_window, command, true);
+          await this.tmuxManager.sendKeys(workspace_id, target_window, [...command, 'C-m']);
           return { content: [{ type: 'text', text: `Process started in ${target_window}.` }] };
         }
 
@@ -169,8 +190,14 @@ class TmuxMcpServer {
 
         if (name === 'send_input') {
           const { text, workspace_id, target_window } = args;
-          await this.tmuxManager.sendKeys(workspace_id, target_window, text, true);
+          await this.tmuxManager.sendKeys(workspace_id, target_window, [...text, 'C-m']);
           return { content: [{ type: 'text', text: `Input sent to ${target_window}.` }] };
+        }
+
+        if (name === 'send_keys') {
+          const { keys, workspace_id, target_window } = args;
+          await this.tmuxManager.sendKeys(workspace_id, target_window, keys);
+          return { content: [{ type: 'text', text: `Keys sent to ${target_window}.` }] };
         }
 
         if (name === 'stop_process') {
