@@ -161,12 +161,18 @@ describe('TmuxManager', () => {
             mockSpawn.mockReturnValueOnce(createMockProcess('', 'no such session', 1));
             // Second call: createSession succeeds
             mockSpawn.mockReturnValueOnce(createMockProcess('', '', 0));
+            // Third call: getScrollbackSize returns current limit
+            mockSpawn.mockReturnValueOnce(createMockProcess('history-limit 2000\n', '', 0));
+            // Fourth call: setScrollbackSize succeeds (2000 < 50000)
+            mockSpawn.mockReturnValueOnce(createMockProcess('', '', 0));
 
             await tmuxManager.createSession('default');
 
-            expect(mockSpawn).toHaveBeenCalledTimes(2);
+            expect(mockSpawn).toHaveBeenCalledTimes(4);
             expect(mockSpawn).toHaveBeenNthCalledWith(1, 'tmux', ['has-session', '-t', 'default-MCP'], expect.any(Object));
             expect(mockSpawn).toHaveBeenNthCalledWith(2, 'tmux', ['new-session', '-d', '-s', 'default-MCP', '-n', 'main'], expect.any(Object));
+            expect(mockSpawn).toHaveBeenNthCalledWith(3, 'tmux', ['show', '-s', '-t', 'default-MCP', 'history-limit'], expect.any(Object));
+            expect(mockSpawn).toHaveBeenNthCalledWith(4, 'tmux', ['set', '-s', '-t', 'default-MCP', 'history-limit', '50000'], expect.any(Object));
             expect(tmuxManager.sessionMetadata.get('default')).toEqual({
                 id: 'default',
                 created: expect.any(Number),
@@ -207,18 +213,24 @@ describe('TmuxManager', () => {
         });
 
         test('creates session if it does not exist', async () => {
-            // sessionExists returns false
+            // createSession calls:
+            // 1. sessionExists returns false
             mockSpawn.mockReturnValueOnce(createMockProcess('', 'no such session', 1));
-            // createSession succeeds
+            // 2. createSession succeeds
             mockSpawn.mockReturnValueOnce(createMockProcess('', '', 0));
-            // windowExists returns false
+            // 3. getScrollbackSize returns current limit
+            mockSpawn.mockReturnValueOnce(createMockProcess('history-limit 2000\n', '', 0));
+            // 4. setScrollbackSize succeeds (2000 < 50000)
+            mockSpawn.mockReturnValueOnce(createMockProcess('', '', 0));
+            // createWindow calls:
+            // 5. windowExists returns false
             mockSpawn.mockReturnValueOnce(createMockProcess('main\n'));
-            // createWindow succeeds
+            // 6. createWindow succeeds
             mockSpawn.mockReturnValueOnce(createMockProcess('', '', 0));
 
             await tmuxManager.createWindow('test', 'window1');
 
-            expect(mockSpawn).toHaveBeenCalledTimes(4);
+            expect(mockSpawn).toHaveBeenCalledTimes(6);
             expect(tmuxManager.sessionMetadata.get('test').windows).toContain('window1');
         });
 

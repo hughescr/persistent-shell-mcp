@@ -38,6 +38,8 @@ get_output({ window_name: "my-window", workspace_id: "my-workspace", search: "sp
 ### Practical Examples
 ```javascript
 // Start a long-running process that generates lots of output
+// First increase scrollback buffer to capture more build output
+run_command({ command: "tmux set-option -t build history-limit 10000", window_name: "build", workspace_id: "my-project" })
 run_command({ command: "bun run build", window_name: "build", workspace_id: "my-project" })
 
 // Get all build output (entire scrollback history)
@@ -165,6 +167,9 @@ send_keys({ keys: "C-c", window_name: "app-logs", workspace_id: "monitoring" })
 
 ### Long-running Builds
 ```javascript
+// Increase scrollback buffer for build output (builds can be very verbose)
+run_command({ command: "tmux set-option -t build-process history-limit 50000", window_name: "build-process", workspace_id: "build-workspace" })
+
 // Start build process
 run_command({ command: "bun run build", window_name: "build-process", workspace_id: "build-workspace" })
 
@@ -174,16 +179,25 @@ get_output({ window_name: "build-process", workspace_id: "build-workspace" })
 // Wait and check again (last 10 lines)
 get_output({ window_name: "build-process", workspace_id: "build-workspace", lines: 10 })
 
+// Search for specific build warnings or errors in all output
+get_output({ window_name: "build-process", workspace_id: "build-workspace", search: "warning|error|failed|deprecated" })
+
 // Build completes automatically
 ```
 
 ### Docker Operations
 ```javascript
+// Increase scrollback for Docker build output (can be very verbose with layer downloads)
+run_command({ command: "tmux set-option -t docker-build history-limit 20000", window_name: "docker-build", workspace_id: "docker-workspace" })
+
 // Build Docker image
 run_command({ command: "docker build -t myapp .", window_name: "docker-build", workspace_id: "docker-workspace" })
 
 // Monitor build progress (last 20 lines)
 get_output({ window_name: "docker-build", workspace_id: "docker-workspace", lines: 20 })
+
+// Search for errors or failed steps in Docker build
+get_output({ window_name: "docker-build", workspace_id: "docker-workspace", search: "error|failed|unable to|permission denied" })
 
 // Run container in different window
 run_command({ command: "docker run -p 3000:3000 myapp", window_name: "docker-run", workspace_id: "docker-workspace" })
@@ -302,11 +316,17 @@ get_output({ window_name: "database", workspace_id: "fullstack-project", lines: 
 
 ### Running Tests
 ```javascript
+// Increase scrollback for test output (test suites can generate extensive output)
+run_command({ command: "tmux set-option -t test-runner history-limit 15000", window_name: "test-runner", workspace_id: "test-workspace" })
+
 // Run test suite
 run_command({ command: "bun test", window_name: "test-runner", workspace_id: "test-workspace" })
 
 // Monitor test progress (returns all scrollback history)
 get_output({ window_name: "test-runner", workspace_id: "test-workspace" })
+
+// Search for failed tests specifically
+get_output({ window_name: "test-runner", workspace_id: "test-workspace", search: "fail|error|✗|❌|FAIL" })
 
 // Run specific test in another window
 run_command({ command: "bun test -- --grep 'user authentication'", window_name: "specific-test", workspace_id: "test-workspace" })
@@ -317,6 +337,9 @@ get_output({ window_name: "specific-test", workspace_id: "test-workspace" })
 
 ### CI/CD Pipeline
 ```javascript
+// Increase scrollback for CI pipeline (can be very long with multiple stages)
+run_command({ command: "tmux set-option -t ci-pipeline history-limit 100000", window_name: "ci-pipeline", workspace_id: "ci-workspace" })
+
 // Start CI pipeline
 run_command({ command: "./ci-pipeline.sh", window_name: "ci-pipeline", workspace_id: "ci-workspace" })
 
@@ -325,6 +348,9 @@ get_output({ window_name: "ci-pipeline", workspace_id: "ci-workspace", lines: 50
 
 // Check for errors (last 100 lines with search)
 get_output({ window_name: "ci-pipeline", workspace_id: "ci-workspace", lines: 100, search: "error|failed" })
+
+// Search for specific pipeline stage failures across all output
+get_output({ window_name: "ci-pipeline", workspace_id: "ci-workspace", search: "stage.*failed|build.*failed|test.*failed|deploy.*failed" })
 ```
 
 ## Troubleshooting Scenarios
@@ -390,6 +416,72 @@ get_output({ window_name: "worker-2", workspace_id: "parallel-work", lines: 10 }
 get_output({ window_name: "worker-3", workspace_id: "parallel-work", lines: 10 })
 ```
 
+## Advanced Search and Debugging Example
+
+### Comprehensive Log Analysis with Search
+```javascript
+// Create workspace for debugging a complex application
+create_workspace({ workspace_id: "debug-session" })
+
+// Set up large scrollback buffer for extensive logging
+run_command({ command: "tmux set-option -t app-server history-limit 50000", window_name: "app-server", workspace_id: "debug-session" })
+
+// Start application with verbose logging
+run_command({ command: "NODE_ENV=development DEBUG=* bun run start", window_name: "app-server", workspace_id: "debug-session" })
+
+// Let the application run and generate logs for a while...
+// Then analyze the output with various search patterns
+
+// 1. Find all database-related errors
+get_output({ window_name: "app-server", workspace_id: "debug-session", search: "database|db|sql|connection.*error" })
+
+// 2. Look for authentication issues in the last 1000 lines
+get_output({ window_name: "app-server", workspace_id: "debug-session", lines: 1000, search: "auth|login|token|unauthorized|403|401" })
+
+// 3. Search for performance issues across all logs
+get_output({ window_name: "app-server", workspace_id: "debug-session", search: "slow|timeout|performance|memory|cpu" })
+
+// 4. Find HTTP 5xx errors with context
+get_output({ window_name: "app-server", workspace_id: "debug-session", search: "50[0-9]|internal.*error|server.*error" })
+
+// 5. Look for specific user-related issues
+get_output({ window_name: "app-server", workspace_id: "debug-session", search: "user.*123|userId.*123" })
+
+// Run a separate log monitoring process in another window
+run_command({ command: "tmux set-option -t system-logs history-limit 25000", window_name: "system-logs", workspace_id: "debug-session" })
+run_command({ command: "tail -f /var/log/nginx/error.log", window_name: "system-logs", workspace_id: "debug-session" })
+
+// Search system logs for related errors
+get_output({ window_name: "system-logs", workspace_id: "debug-session", search: "error|warning|fail" })
+
+// Clean up when debugging is complete
+destroy_workspace({ workspace_id: "debug-session" })
+```
+
+### Package Installation with Error Tracking
+```javascript
+// Set up workspace for package management
+create_workspace({ workspace_id: "package-install" })
+
+// Increase scrollback for potentially verbose package installation
+run_command({ command: "tmux set-option -t install history-limit 30000", window_name: "install", workspace_id: "package-install" })
+
+// Install packages that might have complex dependency trees
+run_command({ command: "bun install @tensorflow/tfjs puppeteer sharp", window_name: "install", workspace_id: "package-install" })
+
+// Monitor installation progress
+get_output({ window_name: "install", workspace_id: "package-install", lines: 20 })
+
+// Search for any installation errors or warnings
+get_output({ window_name: "install", workspace_id: "package-install", search: "error|warn|fail|unable|permission denied|EACCES" })
+
+// Look for peer dependency issues
+get_output({ window_name: "install", workspace_id: "package-install", search: "peer|dependency|version.*mismatch" })
+
+// Check for successful completion
+get_output({ window_name: "install", workspace_id: "package-install", search: "done|complete|success|installed" })
+```
+
 ## MCP Resources
 
 ### Key Reference
@@ -427,5 +519,7 @@ get_output({ window_name: "worker-3", workspace_id: "parallel-work", lines: 10 }
 4. **Clean up workspaces** when done with `destroy_workspace`
 5. **Use `send_input` for text** and `send_keys` for special key sequences
 6. **Search output efficiently** using the search parameter in `get_output`
-7. **Terminate processes cleanly** with Ctrl+C (`C-c`) when needed
-8. **Use `list_workspaces`** to keep track of active workspaces and windows
+7. **Increase scrollback buffer** with `tmux set-option -t window-name history-limit N` for verbose processes
+8. **Use search patterns strategically** to find specific errors, warnings, or events in large outputs
+9. **Terminate processes cleanly** with Ctrl+C (`C-c`) when needed
+10. **Use `list_workspaces`** to keep track of active workspaces and windows

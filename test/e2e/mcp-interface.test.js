@@ -161,7 +161,7 @@ describe('MCP Interface E2E Tests', () => {
 
         const response = await sendRequest('tools/list');
 
-        expect(response.result.tools).toHaveLength(7);
+        expect(response.result.tools).toHaveLength(8);
         const toolNames = response.result.tools.map(t => t.name);
         expect(toolNames).toContain('run_command');
         expect(toolNames).toContain('get_output');

@@ -143,6 +143,17 @@ class TmuxMcpServer {
             }, ['keys'])
         });
 
+        tools.push({
+            name: 'scrollback_size',
+            description: 'Get or set the scrollback history limit for the entire tmux session/workspace. This setting only applies to NEW windows created AFTER the change - existing windows keep their original scrollback size. Without lines parameter: returns current value. With lines parameter: sets new value for future windows. 0 means unlimited. Memory estimates: 2,000 lines (~1 MB per 80-col pane), 10,000 lines (~5 MB per 80-col pane), 50,000 lines (~24 MB per 80-col pane).',
+            inputSchema: createSchema({
+                lines: {
+                    type: 'number',
+                    description: 'Number of lines to keep in scrollback history for new windows. 0 means unlimited. If omitted, returns current value.'
+                }
+            })
+        });
+
         // Workspace management tools - only add if NOT using parent session
         if(!useParentSession) {
             tools.push({
@@ -300,6 +311,39 @@ class TmuxMcpServer {
         return { content: [{ type: 'text', text }] };
     }
 
+    async handleScrollbackSize(args) {
+        const isParentSession = this.tmuxManager.isUsingParentSession;
+        const { workspace_id = 'default', lines } = args;
+        const sessionId = isParentSession ? 'default' : workspace_id;
+
+        // Ensure session exists (but don't create if just getting the value)
+        if(lines !== undefined) {
+            await this.tmuxManager.createSession(sessionId);
+        }
+
+        if(lines !== undefined) {
+            // SET mode - set the scrollback size
+            await this.tmuxManager.setScrollbackSize(sessionId, lines);
+            const location = isParentSession ? 'current session' : `workspace ${workspace_id}`;
+            const limitText = lines === 0 ? 'unlimited' : `${lines} lines`;
+            return { content: [{ type: 'text', text: `Set scrollback size to ${limitText} for ${location}` }] };
+        } else {
+            // GET mode - return current scrollback size
+            const currentSize = await this.tmuxManager.getScrollbackSize(sessionId);
+            const location = isParentSession ? 'current session' : `workspace ${workspace_id}`;
+            const limitText = currentSize === 0 ? 'unlimited' : `${currentSize} lines`;
+
+            // Estimate memory usage
+            let memoryEstimate = '';
+            if(currentSize > 0) {
+                const mbPerPane = Math.round(currentSize * 0.0005 * 10) / 10; // ~0.5KB per line, rounded to 1 decimal
+                memoryEstimate = ` (~${mbPerPane} MB per 80-col pane)`;
+            }
+
+            return { content: [{ type: 'text', text: `Scrollback size for ${location}: ${limitText}${memoryEstimate}` }] };
+        }
+    }
+
     async handleToolCall(name, args) {
         try {
             // Workspace tools are not available when using parent session
@@ -317,6 +361,8 @@ class TmuxMcpServer {
                     return await this.handleSendInput(args);
                 case 'send_keys':
                     return await this.handleSendKeys(args);
+                case 'scrollback_size':
+                    return await this.handleScrollbackSize(args);
                 case 'create_workspace':
                     return await this.handleCreateWorkspace(args);
                 case 'destroy_workspace':

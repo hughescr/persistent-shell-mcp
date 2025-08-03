@@ -148,6 +148,22 @@ list_workspaces() // If MCP server running inside tmux already, only lists the w
 // Returns: "project1: main, server, database\nproject2: main"
 ```
 
+### `scrollback_size`
+Get or set the scrollback buffer size for the entire workspace/session. This setting only applies to NEW windows created AFTER the change - existing windows keep their original scrollback size.
+
+```javascript
+// Get current scrollback size
+scrollback_size({
+  workspace_id: "my-project" // workspace_id not available if MCP server running inside tmux already
+})
+
+// Set new scrollback size for future windows
+scrollback_size({
+  workspace_id: "my-project", // workspace_id not available if MCP server running inside tmux already
+  lines: 10000  // Set to 10,000 lines, or 0 for unlimited (use with caution)
+})
+```
+
 ## Available Resources
 
 The server provides two MCP resources with helpful reference information:
@@ -165,6 +181,68 @@ Common usage patterns and examples for:
 - Monitoring long-running processes
 - Searching output
 - Managing multiple tasks
+
+## Scrollback Buffer Management
+
+Scrollback buffers store terminal history and are managed per-session in tmux. The `scrollback_size` tool sets the session-level `history-limit` option which controls the buffer size for NEW windows created after the setting is changed. Existing windows keep their original scrollback size and cannot be modified. The MCP server automatically sets workspaces to 50,000 lines of history (compared to tmux's default of 2,000 lines) to provide more context for AI assistants.
+
+### Memory Usage Estimates
+
+| Buffer Size | Memory per 80-column window | Notes |
+|-------------|----------------------------|-------|
+| 2,000 lines | ~1 MB | tmux default |
+| 10,000 lines | ~5 MB | More limited memory consumption |
+| 50,000 lines | ~24 MB | MCP server default |
+| 250,000 lines | ~120 MB | Very long-running or verbose processes |
+
+**Important considerations:**
+- The `scrollback_size` tool sets the session-level `history-limit` option
+- This setting only affects NEW windows created AFTER the change
+- Existing windows keep their original scrollback size and cannot be modified
+- You must set the scrollback size BEFORE creating windows that need larger buffers
+- Every window carries its own ring buffer in memory
+- Plain ASCII text uses approximately 0.5 kB per 80-column line
+- Rich content (colored Unicode, complex formatting) can use up to 4x more memory
+- Setting lines to 0 means unlimited scrollback (use with caution on long-running processes)
+
+### Practical Recommendations
+
+**For development work:** 10,000-50,000 lines provides good context without excessive memory usage.
+
+**For log monitoring:** Consider lower values (2,000-5,000 lines) if monitoring high-volume logs.
+
+**For interactive workspaces:** Higher values (50,000+ lines) help maintain context across long sessions.
+
+### Examples
+
+```javascript
+// Check current scrollback size for workspace
+scrollback_size({ workspace_id: "my-project" })
+
+// Set conservative size for future windows in workspace (do this BEFORE creating windows)
+scrollback_size({
+  workspace_id: "my-project",
+  lines: 2000
+})
+// Now create windows that will use the 2000-line buffer
+run_command({ command: "tail -f /var/log/nginx/access.log", workspace_id: "my-project", window_name: "logs" })
+
+// Set larger buffer for development workspace (do this BEFORE creating windows)
+scrollback_size({
+  workspace_id: "dev-project",
+  lines: 50000
+})
+// Now create windows that will use the 50000-line buffer
+run_command({ command: "npm run dev", workspace_id: "dev-project", window_name: "server" })
+
+// Set unlimited history for important workspace (use carefully, do this BEFORE creating windows)
+scrollback_size({
+  workspace_id: "important-project",
+  lines: 0
+})
+```
+
+**Memory monitoring tip:** Use `get_output` with the `lines` parameter to limit how much history you retrieve, even if the buffer is larger.
 
 ## Examples
 

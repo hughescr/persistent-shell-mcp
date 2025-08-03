@@ -41,12 +41,13 @@ describe('TmuxMcpServer Integration Tests', () => {
         test('getToolDefinitions returns all tools', () => {
             const tools = server.getToolDefinitions();
 
-            expect(tools).toHaveLength(7);
+            expect(tools).toHaveLength(8);
             expect(tools.map(t => t.name)).toEqual([
                 'run_command',
                 'get_output',
                 'send_input',
                 'send_keys',
+                'scrollback_size',
                 'create_workspace',
                 'destroy_workspace',
                 'list_workspaces'
