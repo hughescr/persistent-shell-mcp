@@ -22,26 +22,11 @@ This project is a fork of the original [persistent-shell-mcp](https://github.com
 
 ### Prerequisites
 
-- Node.js 18.0.0 or higher
+- Node.js 18.0.0 or higher (I use bun myself)
 - tmux installed on your system
   - Ubuntu/Debian: `sudo apt install tmux`
   - macOS: `brew install tmux`
   - CentOS/RHEL: `sudo yum install tmux`
-
-### Install from npm
-
-```bash
-npm install -g tmux-mcp-server
-```
-
-### Install from source
-
-```bash
-git clone https://github.com/hughescr/persistent-shell-mcp.git
-cd persistent-shell-mcp
-npm install
-npm link
-```
 
 ## Usage
 
@@ -53,7 +38,21 @@ Add to your MCP client configuration:
 {
   "mcpServers": {
     "tmux-shell": {
-      "command": "tmux-mcp-server"
+      "command": "bunx",
+      "args": ["--bunx", "@hughescr/tmux-mcp-server"]
+    }
+  }
+}
+```
+
+or if you prefer npm/npx:
+
+```json
+{
+  "mcpServers": {
+    "tmux-shell": {
+      "command": "npx",
+      "args": ["@hughescr/tmux-mcp-server"]
     }
   }
 }
@@ -67,7 +66,7 @@ Start a command in a tmux window and return immediately.
 ```javascript
 run_command({
   command: "npm run dev",
-  workspace_id: "my-project",  // optional, defaults to "default"
+  workspace_id: "my-project",  // optional, defaults to "default" - workspace_id not available if MCP server running inside tmux already
   window_name: "server"        // optional, defaults to "main"
 })
 ```
@@ -80,7 +79,7 @@ Capture terminal output with two modes:
 **Lines mode** - Get a specific number of lines:
 ```javascript
 get_output({
-  workspace_id: "my-project",
+  workspace_id: "my-project", // workspace_id not available if MCP server running inside tmux already
   window_name: "server",
   lines: 50  // optional, defaults to visible screen
 })
@@ -89,7 +88,7 @@ get_output({
 **Search mode** - Search for patterns in output:
 ```javascript
 get_output({
-  workspace_id: "my-project",
+  workspace_id: "my-project", // workspace_id not available if MCP server running inside tmux already
   window_name: "server",
   search: {
     pattern: "error|warning",     // JavaScript regex (no delimiters)
@@ -105,7 +104,7 @@ Send text to a window (automatically appends Enter).
 ```javascript
 send_input({
   text: "print('Hello, World!')",
-  workspace_id: "my-project",
+  workspace_id: "my-project", // workspace_id not available if MCP server running inside tmux already
   window_name: "python"
 })
 ```
@@ -116,7 +115,7 @@ Send special key sequences using tmux syntax.
 ```javascript
 send_keys({
   keys: ["C-c"],  // Ctrl+C to interrupt
-  workspace_id: "my-project",
+  workspace_id: "my-project", // workspace_id not available if MCP server running inside tmux already
   window_name: "server"
 })
 ```
@@ -127,7 +126,7 @@ Common keys: `C-c` (interrupt), `C-d` (EOF), `Up`/`Down` (history), `Tab` (compl
 Create a new workspace with a "main" window.
 
 ```javascript
-create_workspace({
+create_workspace({ // tool not available if MCP server running inside tmux already
   workspace_id: "new-project"
 })
 ```
@@ -136,7 +135,7 @@ create_workspace({
 Destroy a workspace and all its windows.
 
 ```javascript
-destroy_workspace({
+destroy_workspace({ // tool not available if MCP server running inside tmux already
   workspace_id: "old-project"
 })
 ```
@@ -145,7 +144,7 @@ destroy_workspace({
 List all active workspaces and their windows.
 
 ```javascript
-list_workspaces()
+list_workspaces() // If MCP server running inside tmux already, only lists the windows of the current session
 // Returns: "project1: main, server, database\nproject2: main"
 ```
 
@@ -167,13 +166,25 @@ Common usage patterns and examples for:
 - Searching output
 - Managing multiple tasks
 
+## Examples
+
+For comprehensive examples of using the tmux MCP server, see [EXAMPLES.md](EXAMPLES.md). The examples cover:
+- Basic command execution
+- Interactive development workflows (Python, Node.js, etc.)
+- Server management (dev servers, databases)
+- Log monitoring
+- Testing and CI/CD
+- SSH and remote operations
+- Workspace organization
+- And more practical use cases
+
 ## Common Workflows
 
 ### Running a Development Server
 
 ```javascript
 // Start the server
-run_command({ command: "npm run dev", workspace_id: "myapp", window_name: "server" })
+run_command({ command: "bun run dev", workspace_id: "myapp", window_name: "server" })
 
 // Check server output
 get_output({ workspace_id: "myapp", window_name: "server" })
@@ -245,7 +256,7 @@ When the MCP server is launched from within an existing tmux session, it automat
 **Example usage in parent session mode:**
 ```javascript
 // No workspace_id needed - uses parent session
-run_command({ command: "npm test", window_name: "tests" })
+run_command({ command: "bun test", window_name: "tests" })
 get_output({ window_name: "tests" })
 send_keys({ keys: ["C-c"], window_name: "tests" })
 ```

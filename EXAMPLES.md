@@ -7,86 +7,89 @@ This document provides practical examples of how to use the Tmux MCP Server tool
 ### Simple Commands
 ```javascript
 // List files in current directory
-shell_exec("ls -la")
+run_command("ls -la")
 
 // Check system information
-shell_exec("uname -a")
+run_command("uname -a")
 
-// Install dependencies
-shell_exec("npm install", "project-setup", 60)
+// Install dependencies in a specific workspace and window
+run_command("bun install", "setup", "project-dev")
 ```
 
 ## Interactive Development Workflows
 
 ### Python Development
 ```javascript
-// Start Python REPL
-shell_exec_interactive("python3", "python-session")
+// Start Python REPL in a dedicated window
+run_command("python3", "python-repl", "dev-workspace")
 
 // Send Python code
-tmux_send_input("import pandas as pd", "python-session")
-tmux_send_input("df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})", "python-session")
-tmux_send_input("print(df)", "python-session")
+send_input("import pandas as pd", "python-repl", "dev-workspace")
+send_input("df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})", "python-repl", "dev-workspace")
+send_input("print(df)", "python-repl", "dev-workspace")
 
 // Check output
-tmux_capture_terminal("python-session")
+get_output("python-repl", "dev-workspace")
 
 // Exit Python
-tmux_send_input("exit()", "python-session")
+send_input("exit()", "python-repl", "dev-workspace")
 ```
 
-### Node.js REPL
+### Bun REPL
 ```javascript
-// Start Node.js REPL
-shell_exec_interactive("node", "node-session")
+// Start Bun REPL
+run_command("bun repl", "bun-repl")
 
 // Send JavaScript code
-tmux_send_input("const arr = [1, 2, 3, 4, 5]", "node-session")
-tmux_send_input("console.log(arr.map(x => x * 2))", "node-session")
+send_input("const arr = [1, 2, 3, 4, 5]", "bun-repl")
+send_input("console.log(arr.map(x => x * 2))", "bun-repl")
 
-// Exit Node.js
-tmux_send_input(".exit", "node-session")
+// Check output
+get_output("node-repl")
+
+// Exit Bun repl
+send_input(".exit", "node-repl")
 ```
 
 ## Server Management
 
 ### Development Server
 ```javascript
-// Start a development server (doesn't hang)
-shell_exec_interactive("npm run dev", "dev-server")
+// Start a development server
+run_command("bun run dev", "dev-server", "web-project")
 
 // Check server status
-tmux_capture_terminal("dev-server")
+get_output("dev-server", "web-project")
 
-// Server is running, check logs periodically
-tmux_capture_terminal("dev-server")
+// Server is running, check logs with search
+get_output("dev-server", "web-project", 50, "error|warn")
 
-// Stop the server
-tmux_send_input("C-c", "dev-server", false)
+// Stop the server using special keys
+send_keys("C-c", "dev-server", "web-project")
 ```
 
 ### HTTP Server
 ```javascript
 // Start Python HTTP server
-shell_exec_interactive("python -m http.server 8000", "http-server")
+run_command("python -m http.server 8000", "http-server", "demo-workspace")
 
 // Verify server started
-tmux_capture_terminal("http-server")
+get_output("http-server", "demo-workspace")
 
 // Stop server
-tmux_send_input("C-c", "http-server", false)
+send_keys("C-c", "http-server", "demo-workspace")
 ```
 
 ### Database Server
 ```javascript
 // Start local database
-shell_exec_interactive("mongod --dbpath ./data", "mongo-server")
+run_command("mongod --dbpath ./data", "mongo-server", "db-workspace")
 
 // Monitor database logs
-tmux_capture_terminal("mongo-server")
+get_output("mongo-server", "db-workspace", 30)
 
 // Stop database
-tmux_send_input("C-c", "mongo-server", false)
+send_keys("C-c", "mongo-server", "db-workspace")
 ```
 
 ## Log Monitoring
@@ -94,39 +97,39 @@ tmux_send_input("C-c", "mongo-server", false)
 ### System Logs
 ```javascript
 // Monitor system logs
-shell_exec_interactive("tail -f /var/log/syslog", "system-logs")
+run_command("tail -f /var/log/syslog", "system-logs", "monitoring")
 
-// Check for new entries
-tmux_capture_terminal("system-logs")
+// Check for new entries with search
+get_output("system-logs", "monitoring", 20, "error")
 
 // Stop monitoring
-tmux_send_input("C-c", "system-logs", false)
+send_keys("C-c", "system-logs", "monitoring")
 ```
 
 ### Application Logs
 ```javascript
 // Monitor application logs
-shell_exec_interactive("tail -f logs/app.log", "app-logs")
+run_command("tail -f logs/app.log", "app-logs", "monitoring")
 
 // Check recent entries
-tmux_capture_terminal("app-logs")
+get_output("app-logs", "monitoring", 15)
 
 // Stop monitoring
-tmux_send_input("C-c", "app-logs", false)
+send_keys("C-c", "app-logs", "monitoring")
 ```
 
 ## Build and Deployment
 
 ### Long-running Builds
 ```javascript
-// Start build process (doesn't hang)
-shell_exec_interactive("npm run build", "build-process")
+// Start build process
+run_command("bun run build", "build-process", "build-workspace")
 
 // Check build progress
-tmux_capture_terminal("build-process")
+get_output("build-process", "build-workspace")
 
-// Wait a bit and check again
-tmux_capture_terminal("build-process")
+// Wait and check again
+get_output("build-process", "build-workspace", 10)
 
 // Build completes automatically
 ```
@@ -134,19 +137,19 @@ tmux_capture_terminal("build-process")
 ### Docker Operations
 ```javascript
 // Build Docker image
-shell_exec_interactive("docker build -t myapp .", "docker-build")
+run_command("docker build -t myapp .", "docker-build", "docker-workspace")
 
 // Monitor build progress
-tmux_capture_terminal("docker-build")
+get_output("docker-build", "docker-workspace", 20)
 
-// Run container
-shell_exec_interactive("docker run -p 3000:3000 myapp", "docker-run")
+// Run container in different window
+run_command("docker run -p 3000:3000 myapp", "docker-run", "docker-workspace")
 
 // Check container logs
-tmux_capture_terminal("docker-run")
+get_output("docker-run", "docker-workspace")
 
 // Stop container
-tmux_send_input("C-c", "docker-run", false)
+send_keys("C-c", "docker-run", "docker-workspace")
 ```
 
 ## Database Interactions
@@ -154,31 +157,37 @@ tmux_send_input("C-c", "docker-run", false)
 ### MySQL
 ```javascript
 // Connect to MySQL
-shell_exec_interactive("mysql -u user -p", "mysql-session")
+run_command("mysql -u user -p", "mysql-session", "db-workspace")
 
 // Enter password when prompted
-tmux_send_input("your_password", "mysql-session")
+send_input("your_password", "mysql-session", "db-workspace")
 
 // Run SQL commands
-tmux_send_input("SHOW DATABASES;", "mysql-session")
-tmux_send_input("USE mydb;", "mysql-session")
-tmux_send_input("SELECT * FROM users LIMIT 10;", "mysql-session")
+send_input("SHOW DATABASES;", "mysql-session", "db-workspace")
+send_input("USE mydb;", "mysql-session", "db-workspace")
+send_input("SELECT * FROM users LIMIT 10;", "mysql-session", "db-workspace")
+
+// Check query results
+get_output("mysql-session", "db-workspace")
 
 // Exit MySQL
-tmux_send_input("EXIT;", "mysql-session")
+send_input("EXIT;", "mysql-session", "db-workspace")
 ```
 
 ### PostgreSQL
 ```javascript
 // Connect to PostgreSQL
-shell_exec_interactive("psql -U user -d database", "postgres-session")
+run_command("psql -U user -d database", "postgres-session", "db-workspace")
 
 // Run SQL commands
-tmux_send_input("\\dt", "postgres-session")  // List tables
-tmux_send_input("SELECT version();", "postgres-session")
+send_input("\\dt", "postgres-session", "db-workspace")  // List tables
+send_input("SELECT version();", "postgres-session", "db-workspace")
+
+// Check results
+get_output("postgres-session", "db-workspace")
 
 // Exit PostgreSQL
-tmux_send_input("\\q", "postgres-session")
+send_input("\\q", "postgres-session", "db-workspace")
 ```
 
 ## SSH and Remote Operations
@@ -186,55 +195,64 @@ tmux_send_input("\\q", "postgres-session")
 ### SSH Connection
 ```javascript
 // Connect via SSH
-shell_exec_interactive("ssh user@server.com", "ssh-session")
+run_command("ssh user@server.com", "ssh-session", "remote-workspace")
 
 // Accept host key if prompted
-tmux_send_input("yes", "ssh-session")
+send_input("yes", "ssh-session", "remote-workspace")
 
 // Enter password
-tmux_send_input("your_password", "ssh-session")
+send_input("your_password", "ssh-session", "remote-workspace")
 
 // Run remote commands
-tmux_send_input("ls -la", "ssh-session")
-tmux_send_input("top", "ssh-session")
+send_input("ls -la", "ssh-session", "remote-workspace")
+send_input("top", "ssh-session", "remote-workspace")
 
 // Exit top
-tmux_send_input("q", "ssh-session")
+send_input("q", "ssh-session", "remote-workspace")
+
+// Check output
+get_output("ssh-session", "remote-workspace")
 
 // Exit SSH
-tmux_send_input("exit", "ssh-session")
+send_input("exit", "ssh-session", "remote-workspace")
 ```
 
-## Session Management
+## Workspace Management
 
 ### Multiple Projects
 ```javascript
-// Create sessions for different projects
-tmux_create_session("frontend-dev")
-tmux_create_session("backend-dev")
-tmux_create_session("database-work")
+// Create workspaces for different projects
+create_workspace("frontend-dev")
+create_workspace("backend-dev")
+create_workspace("database-work")
 
-// List all sessions
-tmux_list_sessions()
+// List all workspaces and their windows
+list_workspaces()
 
-// Check session status
-tmux_session_exists("frontend-dev")
-tmux_session_info("frontend-dev")
+// Work in different windows within a workspace
+run_command("bun start", "server", "frontend-dev")
+run_command("bun run test:watch", "tests", "frontend-dev")
+run_command("bun run build", "build", "frontend-dev")
 
-// Clean up idle sessions
-tmux_cleanup_sessions()
+// Clean up when done
+destroy_workspace("database-work")
 ```
 
-### Session Monitoring
+### Workspace Organization
 ```javascript
-// Get detailed session information
-tmux_session_info("my-session")
+// Create a workspace for a complex project
+create_workspace("fullstack-project")
 
-// Check if session is healthy
-tmux_session_exists("my-session")
+// Set up different windows for different tasks
+run_command("bun run dev", "frontend", "fullstack-project")
+run_command("bun run server", "backend", "fullstack-project")
+run_command("docker-compose up", "database", "fullstack-project")
+run_command("bun test -- --watch", "tests", "fullstack-project")
 
-// Destroy session when done
-tmux_destroy_session("my-session")
+// Monitor all components
+get_output("frontend", "fullstack-project", 10)
+get_output("backend", "fullstack-project", 10)
+get_output("database", "fullstack-project", 10)
 ```
 
 ## Testing and CI/CD
@@ -242,24 +260,28 @@ tmux_destroy_session("my-session")
 ### Running Tests
 ```javascript
 // Run test suite
-shell_exec_interactive("npm test", "test-session")
+run_command("bun test", "test-runner", "test-workspace")
 
 // Monitor test progress
-tmux_capture_terminal("test-session")
+get_output("test-runner", "test-workspace")
 
-// Run specific test
-tmux_send_input("npm test -- --grep 'user authentication'", "test-session")
+// Run specific test in another window
+run_command("bun test -- --grep 'user authentication'", "specific-test", "test-workspace")
+
+// Check results
+get_output("specific-test", "test-workspace")
 ```
 
 ### CI/CD Pipeline
 ```javascript
 // Start CI pipeline
-shell_exec_interactive("./ci-pipeline.sh", "ci-pipeline")
+run_command("./ci-pipeline.sh", "ci-pipeline", "ci-workspace")
 
 // Monitor pipeline progress
-tmux_capture_terminal("ci-pipeline")
+get_output("ci-pipeline", "ci-workspace", 50)
 
-// Pipeline completes automatically
+// Check for errors
+get_output("ci-pipeline", "ci-workspace", 100, "error|failed")
 ```
 
 ## Troubleshooting Scenarios
@@ -267,29 +289,29 @@ tmux_capture_terminal("ci-pipeline")
 ### Debugging Hanging Process
 ```javascript
 // Start potentially problematic command
-shell_exec_interactive("problematic-command", "debug-session")
+run_command("problematic-command", "debug-window", "debug-workspace")
 
 // Check if it's running
-tmux_capture_terminal("debug-session")
+get_output("debug-window", "debug-workspace")
 
 // If stuck, terminate
-tmux_send_input("C-c", "debug-session", false)
+send_keys("C-c", "debug-window", "debug-workspace")
 
 // Check final state
-tmux_capture_terminal("debug-session")
+get_output("debug-window", "debug-workspace")
 ```
 
 ### Process Recovery
 ```javascript
-// Check session health
-tmux_session_info("my-session")
+// Check workspace status
+list_workspaces()
 
-// If unhealthy, check terminal state
-tmux_capture_terminal("my-session")
+// Check terminal state
+get_output("problematic-window", "my-workspace")
 
 // Restart process if needed
-tmux_send_input("C-c", "my-session", false)
-shell_exec_interactive("restart-command", "my-session")
+send_keys("C-c", "problematic-window", "my-workspace")
+run_command("restart-command", "problematic-window", "my-workspace")
 ```
 
 ## Advanced Patterns
@@ -297,36 +319,70 @@ shell_exec_interactive("restart-command", "my-session")
 ### Command Chaining
 ```javascript
 // Start first command
-shell_exec_interactive("command1", "chain-session")
+run_command("command1", "chain-window", "chain-workspace")
 
 // Wait for completion and check result
-tmux_capture_terminal("chain-session")
+get_output("chain-window", "chain-workspace")
 
-// Start second command
-tmux_send_input("command2", "chain-session")
+// Start second command based on first result
+send_input("command2", "chain-window", "chain-workspace")
 
 // Continue chain
-tmux_capture_terminal("chain-session")
+get_output("chain-window", "chain-workspace")
 ```
 
 ### Parallel Processing
 ```javascript
-// Start multiple processes in different sessions
-shell_exec_interactive("process1", "worker-1")
-shell_exec_interactive("process2", "worker-2")
-shell_exec_interactive("process3", "worker-3")
+// Create workspace for parallel work
+create_workspace("parallel-work")
+
+// Start multiple processes in different windows
+run_command("process1", "worker-1", "parallel-work")
+run_command("process2", "worker-2", "parallel-work")
+run_command("process3", "worker-3", "parallel-work")
 
 // Monitor all processes
-tmux_capture_terminal("worker-1")
-tmux_capture_terminal("worker-2")
-tmux_capture_terminal("worker-3")
+get_output("worker-1", "parallel-work", 10)
+get_output("worker-2", "parallel-work", 10)
+get_output("worker-3", "parallel-work", 10)
+```
+
+## MCP Resources
+
+### Key Reference
+```javascript
+// Access tmux key sequences reference
+// Resource: tmux://keys-reference
+// Contains common key combinations like:
+// - C-c: Interrupt (Ctrl+C)
+// - C-z: Suspend (Ctrl+Z)
+// - C-d: End of file (Ctrl+D)
+// - Up/Down/Left/Right: Arrow keys
+// - Enter: Return key
+// - Tab: Tab key
+// - Escape: Escape key
+```
+
+### Common Patterns
+```javascript
+// Access usage patterns and examples
+// Resource: tmux://common-patterns
+// Contains examples of:
+// - Starting and managing long-running processes
+// - Interactive shell sessions
+// - Database connections
+// - SSH sessions
+// - Development workflows
+// - Testing patterns
 ```
 
 ## Best Practices
 
-1. **Use descriptive session names** that indicate purpose
-2. **Monitor long-running processes** with `tmux_capture_terminal`
-3. **Clean up sessions** when done with `tmux_destroy_session`
-4. **Use appropriate timeouts** for `shell_exec` based on expected runtime
-5. **Handle interactive prompts** properly with `tmux_send_input`
-6. **Terminate processes cleanly** with Ctrl+C (`C-c`) when needed
+1. **Use descriptive workspace and window names** that indicate purpose
+2. **Organize related tasks** in windows within the same workspace
+3. **Monitor long-running processes** with `get_output`
+4. **Clean up workspaces** when done with `destroy_workspace`
+5. **Use `send_input` for text** and `send_keys` for special key sequences
+6. **Search output efficiently** using the search parameter in `get_output`
+7. **Terminate processes cleanly** with Ctrl+C (`C-c`) when needed
+8. **Use `list_workspaces`** to keep track of active workspaces and windows
