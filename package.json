@@ -2,17 +2,6 @@
   "name": "tmux-mcp-server",
   "version": "2.0.0",
   "description": "A simplified and elegant MCP server for persistent shell execution via tmux.",
-  "type": "module",
-  "main": "src/index.js",
-  "bin": {
-    "tmux-mcp-server": "./bin/tmux-mcp-server"
-  },
-  "scripts": {
-    "claude": "tmux -CC new -A -n Claude -s persistent-shell bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
-    "start": "./bin/tmux-mcp-server",
-    "test": "bun test",
-    "test:coverage": "bun test --coverage"
-  },
   "keywords": [
     "mcp",
     "tmux",
@@ -21,18 +10,16 @@
     "command",
     "execution"
   ],
-  "author": "Gemini",
-  "license": "MIT",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.5.0",
-    "uuid": "^10.0.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/TNTisdial/persistent-shell-mcp.git"
+  },
+  "license": "MIT",
+  "author": "Gemini",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "tmux-mcp-server": "./bin/tmux-mcp-server"
   },
   "files": [
     "src/",
@@ -40,5 +27,24 @@
     "README.md",
     "EXAMPLES.md",
     "LICENSE"
-  ]
+  ],
+  "scripts": {
+    "claude": "tmux -CC new -A -n Claude -s persistent-shell bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
+    "start": "./bin/tmux-mcp-server",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@hughescr/eslint-config-default": "^3.0.4",
+    "eslint": "^9.32.0",
+    "eslint-plugin-jest": "^29.0.1",
+    "eslint-plugin-package-json": "^0.48.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

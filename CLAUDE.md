@@ -19,6 +19,14 @@ Each workspace is a tmux session that can contain multiple named windows:
 - Windows organize related commands within a workspace
 - All commands run asynchronously without blocking
 
+### Parent Session Detection
+
+When the MCP server is started from within a tmux session, it automatically detects and uses that session instead of creating new ones:
+- Detects parent session using `TMUX` and `TMUX_PANE` environment variables
+- Removes `workspace_id` parameter from all tool schemas when using parent session
+- Prevents sending commands to its own window (safety feature)
+- Workspace management tools (`create_workspace`, `destroy_workspace`) are disabled
+
 ## Development Commands
 
 ### Running the Server

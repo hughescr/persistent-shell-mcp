@@ -10,6 +10,7 @@ A Model Context Protocol (MCP) server that provides persistent shell execution t
 - **Interactive Process Support**: Handle long-running processes, REPLs, and interactive commands
 - **Output Search**: Search through terminal output with regex patterns and context
 - **Non-blocking Execution**: All commands run asynchronously, allowing parallel operations
+- **Parent Session Detection**: When started from within tmux, automatically uses the parent session instead of creating new ones
 
 ## Installation
 
@@ -225,6 +226,25 @@ Each workspace is a tmux session that can contain multiple named windows. This a
 - Maintain separate environments for different projects
 - Keep processes running independently
 - Switch between tasks without losing state
+
+### Parent Session Detection
+
+When the MCP server is launched from within an existing tmux session, it automatically detects and uses that session instead of creating new ones. This provides seamless integration when running Claude or other MCP clients inside tmux.
+
+**Behavior when parent session is detected:**
+- All commands run in the parent tmux session
+- `workspace_id` parameter is removed from all tools
+- Workspace management tools (`create_workspace`, `destroy_workspace`) are disabled
+- The server prevents sending commands to its own window for safety
+- Windows created by the server appear alongside your existing tmux windows
+
+**Example usage in parent session mode:**
+```javascript
+// No workspace_id needed - uses parent session
+run_command({ command: "npm test", window_name: "tests" })
+get_output({ window_name: "tests" })
+send_keys({ keys: ["C-c"], window_name: "tests" })
+```
 
 ## Troubleshooting
 
