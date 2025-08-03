@@ -246,7 +246,7 @@ class TmuxManager {
         return await this._runTmuxCommand(args);
     }
 
-    async capturePane(sessionId, windowName = 'main', lines) {
+    async capturePane(sessionId, windowName = 'main', lines = undefined) {
         // Safety check: don't capture from our own window if using parent session
         if(this.isUsingParentSession && windowName === this.parentWindow) {
             throw new Error(`Cannot capture from own window (${this.parentWindow})`);

@@ -7,48 +7,91 @@ This document provides practical examples of how to use the Tmux MCP Server tool
 ### Simple Commands
 ```javascript
 // List files in current directory
-run_command("ls -la")
+run_command({ command: "ls -la" })
 
 // Check system information
-run_command("uname -a")
+run_command({ command: "uname -a" })
 
 // Install dependencies in a specific workspace and window
-run_command("bun install", "setup", "project-dev")
+run_command({ command: "bun install", window_name: "setup", workspace_id: "project-dev" })
 ```
+
+## Understanding get_output Parameters
+
+The `get_output` function has several important behaviors depending on the parameters provided:
+
+### Lines Parameter Behavior
+```javascript
+// When lines parameter is omitted - returns ALL scrollback history
+get_output({ window_name: "my-window", workspace_id: "my-workspace" })
+
+// When lines parameter is specified - returns only the last N lines
+get_output({ window_name: "my-window", workspace_id: "my-workspace", lines: 20 })
+
+// Combine with search to filter the output
+get_output({ window_name: "my-window", workspace_id: "my-workspace", lines: 50, search: "error|warn" })
+
+// Search across all scrollback history (no lines limit)
+get_output({ window_name: "my-window", workspace_id: "my-workspace", search: "specific-text" })
+```
+
+### Practical Examples
+```javascript
+// Start a long-running process that generates lots of output
+run_command({ command: "bun run build", window_name: "build", workspace_id: "my-project" })
+
+// Get all build output (entire scrollback history)
+get_output({ window_name: "build", workspace_id: "my-project" })
+
+// Get just the most recent 10 lines to see current status
+get_output({ window_name: "build", workspace_id: "my-project", lines: 10 })
+
+// Search for errors in the last 100 lines
+get_output({ window_name: "build", workspace_id: "my-project", lines: 100, search: "error|failed" })
+
+// Search for warnings across all output history
+get_output({ window_name: "build", workspace_id: "my-project", search: "warning|warn" })
+```
+
+**Key Points:**
+- **No `lines` parameter**: Returns complete scrollback history (can be very large for long-running processes)
+- **With `lines` parameter**: Returns only the specified number of most recent lines
+- **Search parameter**: Works with both full history and limited lines
+- **Performance**: Limiting lines improves performance for processes with extensive output
 
 ## Interactive Development Workflows
 
 ### Python Development
 ```javascript
 // Start Python REPL in a dedicated window
-run_command("python3", "python-repl", "dev-workspace")
+run_command({ command: "python3", window_name: "python-repl", workspace_id: "dev-workspace" })
 
 // Send Python code
-send_input("import pandas as pd", "python-repl", "dev-workspace")
-send_input("df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})", "python-repl", "dev-workspace")
-send_input("print(df)", "python-repl", "dev-workspace")
+send_input({ text: "import pandas as pd", window_name: "python-repl", workspace_id: "dev-workspace" })
+send_input({ text: "df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})", window_name: "python-repl", workspace_id: "dev-workspace" })
+send_input({ text: "print(df)", window_name: "python-repl", workspace_id: "dev-workspace" })
 
-// Check output
-get_output("python-repl", "dev-workspace")
+// Check output (returns all scrollback history)
+get_output({ window_name: "python-repl", workspace_id: "dev-workspace" })
 
 // Exit Python
-send_input("exit()", "python-repl", "dev-workspace")
+send_input({ text: "exit()", window_name: "python-repl", workspace_id: "dev-workspace" })
 ```
 
 ### Bun REPL
 ```javascript
 // Start Bun REPL
-run_command("bun repl", "bun-repl")
+run_command({ command: "bun repl", window_name: "bun-repl" })
 
 // Send JavaScript code
-send_input("const arr = [1, 2, 3, 4, 5]", "bun-repl")
-send_input("console.log(arr.map(x => x * 2))", "bun-repl")
+send_input({ text: "const arr = [1, 2, 3, 4, 5]", window_name: "bun-repl" })
+send_input({ text: "console.log(arr.map(x => x * 2))", window_name: "bun-repl" })
 
-// Check output
-get_output("node-repl")
+// Check output (returns all scrollback history)
+get_output({ window_name: "bun-repl" })
 
 // Exit Bun repl
-send_input(".exit", "node-repl")
+send_input({ text: ".exit", window_name: "bun-repl" })
 ```
 
 ## Server Management
@@ -56,40 +99,40 @@ send_input(".exit", "node-repl")
 ### Development Server
 ```javascript
 // Start a development server
-run_command("bun run dev", "dev-server", "web-project")
+run_command({ command: "bun run dev", window_name: "dev-server", workspace_id: "web-project" })
 
-// Check server status
-get_output("dev-server", "web-project")
+// Check server status (returns all scrollback history)
+get_output({ window_name: "dev-server", workspace_id: "web-project" })
 
-// Server is running, check logs with search
-get_output("dev-server", "web-project", 50, "error|warn")
+// Server is running, check logs with search (last 50 lines)
+get_output({ window_name: "dev-server", workspace_id: "web-project", lines: 50, search: "error|warn" })
 
 // Stop the server using special keys
-send_keys("C-c", "dev-server", "web-project")
+send_keys({ keys: "C-c", window_name: "dev-server", workspace_id: "web-project" })
 ```
 
 ### HTTP Server
 ```javascript
 // Start Python HTTP server
-run_command("python -m http.server 8000", "http-server", "demo-workspace")
+run_command({ command: "python -m http.server 8000", window_name: "http-server", workspace_id: "demo-workspace" })
 
-// Verify server started
-get_output("http-server", "demo-workspace")
+// Verify server started (returns all scrollback history)
+get_output({ window_name: "http-server", workspace_id: "demo-workspace" })
 
 // Stop server
-send_keys("C-c", "http-server", "demo-workspace")
+send_keys({ keys: "C-c", window_name: "http-server", workspace_id: "demo-workspace" })
 ```
 
 ### Database Server
 ```javascript
 // Start local database
-run_command("mongod --dbpath ./data", "mongo-server", "db-workspace")
+run_command({ command: "mongod --dbpath ./data", window_name: "mongo-server", workspace_id: "db-workspace" })
 
-// Monitor database logs
-get_output("mongo-server", "db-workspace", 30)
+// Monitor database logs (last 30 lines)
+get_output({ window_name: "mongo-server", workspace_id: "db-workspace", lines: 30 })
 
 // Stop database
-send_keys("C-c", "mongo-server", "db-workspace")
+send_keys({ keys: "C-c", window_name: "mongo-server", workspace_id: "db-workspace" })
 ```
 
 ## Log Monitoring
@@ -97,25 +140,25 @@ send_keys("C-c", "mongo-server", "db-workspace")
 ### System Logs
 ```javascript
 // Monitor system logs
-run_command("tail -f /var/log/syslog", "system-logs", "monitoring")
+run_command({ command: "tail -f /var/log/syslog", window_name: "system-logs", workspace_id: "monitoring" })
 
-// Check for new entries with search
-get_output("system-logs", "monitoring", 20, "error")
+// Check for new entries with search (last 20 lines)
+get_output({ window_name: "system-logs", workspace_id: "monitoring", lines: 20, search: "error" })
 
 // Stop monitoring
-send_keys("C-c", "system-logs", "monitoring")
+send_keys({ keys: "C-c", window_name: "system-logs", workspace_id: "monitoring" })
 ```
 
 ### Application Logs
 ```javascript
 // Monitor application logs
-run_command("tail -f logs/app.log", "app-logs", "monitoring")
+run_command({ command: "tail -f logs/app.log", window_name: "app-logs", workspace_id: "monitoring" })
 
-// Check recent entries
-get_output("app-logs", "monitoring", 15)
+// Check recent entries (last 15 lines)
+get_output({ window_name: "app-logs", workspace_id: "monitoring", lines: 15 })
 
 // Stop monitoring
-send_keys("C-c", "app-logs", "monitoring")
+send_keys({ keys: "C-c", window_name: "app-logs", workspace_id: "monitoring" })
 ```
 
 ## Build and Deployment
@@ -123,13 +166,13 @@ send_keys("C-c", "app-logs", "monitoring")
 ### Long-running Builds
 ```javascript
 // Start build process
-run_command("bun run build", "build-process", "build-workspace")
+run_command({ command: "bun run build", window_name: "build-process", workspace_id: "build-workspace" })
 
-// Check build progress
-get_output("build-process", "build-workspace")
+// Check build progress (returns all scrollback history)
+get_output({ window_name: "build-process", workspace_id: "build-workspace" })
 
-// Wait and check again
-get_output("build-process", "build-workspace", 10)
+// Wait and check again (last 10 lines)
+get_output({ window_name: "build-process", workspace_id: "build-workspace", lines: 10 })
 
 // Build completes automatically
 ```
@@ -137,19 +180,19 @@ get_output("build-process", "build-workspace", 10)
 ### Docker Operations
 ```javascript
 // Build Docker image
-run_command("docker build -t myapp .", "docker-build", "docker-workspace")
+run_command({ command: "docker build -t myapp .", window_name: "docker-build", workspace_id: "docker-workspace" })
 
-// Monitor build progress
-get_output("docker-build", "docker-workspace", 20)
+// Monitor build progress (last 20 lines)
+get_output({ window_name: "docker-build", workspace_id: "docker-workspace", lines: 20 })
 
 // Run container in different window
-run_command("docker run -p 3000:3000 myapp", "docker-run", "docker-workspace")
+run_command({ command: "docker run -p 3000:3000 myapp", window_name: "docker-run", workspace_id: "docker-workspace" })
 
-// Check container logs
-get_output("docker-run", "docker-workspace")
+// Check container logs (returns all scrollback history)
+get_output({ window_name: "docker-run", workspace_id: "docker-workspace" })
 
 // Stop container
-send_keys("C-c", "docker-run", "docker-workspace")
+send_keys({ keys: "C-c", window_name: "docker-run", workspace_id: "docker-workspace" })
 ```
 
 ## Database Interactions
@@ -157,37 +200,37 @@ send_keys("C-c", "docker-run", "docker-workspace")
 ### MySQL
 ```javascript
 // Connect to MySQL
-run_command("mysql -u user -p", "mysql-session", "db-workspace")
+run_command({ command: "mysql -u user -p", window_name: "mysql-session", workspace_id: "db-workspace" })
 
 // Enter password when prompted
-send_input("your_password", "mysql-session", "db-workspace")
+send_input({ text: "your_password", window_name: "mysql-session", workspace_id: "db-workspace" })
 
 // Run SQL commands
-send_input("SHOW DATABASES;", "mysql-session", "db-workspace")
-send_input("USE mydb;", "mysql-session", "db-workspace")
-send_input("SELECT * FROM users LIMIT 10;", "mysql-session", "db-workspace")
+send_input({ text: "SHOW DATABASES;", window_name: "mysql-session", workspace_id: "db-workspace" })
+send_input({ text: "USE mydb;", window_name: "mysql-session", workspace_id: "db-workspace" })
+send_input({ text: "SELECT * FROM users LIMIT 10;", window_name: "mysql-session", workspace_id: "db-workspace" })
 
-// Check query results
-get_output("mysql-session", "db-workspace")
+// Check query results (returns all scrollback history)
+get_output({ window_name: "mysql-session", workspace_id: "db-workspace" })
 
 // Exit MySQL
-send_input("EXIT;", "mysql-session", "db-workspace")
+send_input({ text: "EXIT;", window_name: "mysql-session", workspace_id: "db-workspace" })
 ```
 
 ### PostgreSQL
 ```javascript
 // Connect to PostgreSQL
-run_command("psql -U user -d database", "postgres-session", "db-workspace")
+run_command({ command: "psql -U user -d database", window_name: "postgres-session", workspace_id: "db-workspace" })
 
 // Run SQL commands
-send_input("\\dt", "postgres-session", "db-workspace")  // List tables
-send_input("SELECT version();", "postgres-session", "db-workspace")
+send_input({ text: "\\dt", window_name: "postgres-session", workspace_id: "db-workspace" })  // List tables
+send_input({ text: "SELECT version();", window_name: "postgres-session", workspace_id: "db-workspace" })
 
-// Check results
-get_output("postgres-session", "db-workspace")
+// Check results (returns all scrollback history)
+get_output({ window_name: "postgres-session", workspace_id: "db-workspace" })
 
 // Exit PostgreSQL
-send_input("\\q", "postgres-session", "db-workspace")
+send_input({ text: "\\q", window_name: "postgres-session", workspace_id: "db-workspace" })
 ```
 
 ## SSH and Remote Operations
@@ -195,26 +238,26 @@ send_input("\\q", "postgres-session", "db-workspace")
 ### SSH Connection
 ```javascript
 // Connect via SSH
-run_command("ssh user@server.com", "ssh-session", "remote-workspace")
+run_command({ command: "ssh user@server.com", window_name: "ssh-session", workspace_id: "remote-workspace" })
 
 // Accept host key if prompted
-send_input("yes", "ssh-session", "remote-workspace")
+send_input({ text: "yes", window_name: "ssh-session", workspace_id: "remote-workspace" })
 
 // Enter password
-send_input("your_password", "ssh-session", "remote-workspace")
+send_input({ text: "your_password", window_name: "ssh-session", workspace_id: "remote-workspace" })
 
 // Run remote commands
-send_input("ls -la", "ssh-session", "remote-workspace")
-send_input("top", "ssh-session", "remote-workspace")
+send_input({ text: "ls -la", window_name: "ssh-session", workspace_id: "remote-workspace" })
+send_input({ text: "top", window_name: "ssh-session", workspace_id: "remote-workspace" })
 
 // Exit top
-send_input("q", "ssh-session", "remote-workspace")
+send_input({ text: "q", window_name: "ssh-session", workspace_id: "remote-workspace" })
 
-// Check output
-get_output("ssh-session", "remote-workspace")
+// Check output (returns all scrollback history)
+get_output({ window_name: "ssh-session", workspace_id: "remote-workspace" })
 
 // Exit SSH
-send_input("exit", "ssh-session", "remote-workspace")
+send_input({ text: "exit", window_name: "ssh-session", workspace_id: "remote-workspace" })
 ```
 
 ## Workspace Management
@@ -222,37 +265,37 @@ send_input("exit", "ssh-session", "remote-workspace")
 ### Multiple Projects
 ```javascript
 // Create workspaces for different projects
-create_workspace("frontend-dev")
-create_workspace("backend-dev")
-create_workspace("database-work")
+create_workspace({ workspace_id: "frontend-dev" })
+create_workspace({ workspace_id: "backend-dev" })
+create_workspace({ workspace_id: "database-work" })
 
 // List all workspaces and their windows
 list_workspaces()
 
 // Work in different windows within a workspace
-run_command("bun start", "server", "frontend-dev")
-run_command("bun run test:watch", "tests", "frontend-dev")
-run_command("bun run build", "build", "frontend-dev")
+run_command({ command: "bun start", window_name: "server", workspace_id: "frontend-dev" })
+run_command({ command: "bun run test:watch", window_name: "tests", workspace_id: "frontend-dev" })
+run_command({ command: "bun run build", window_name: "build", workspace_id: "frontend-dev" })
 
 // Clean up when done
-destroy_workspace("database-work")
+destroy_workspace({ workspace_id: "database-work" })
 ```
 
 ### Workspace Organization
 ```javascript
 // Create a workspace for a complex project
-create_workspace("fullstack-project")
+create_workspace({ workspace_id: "fullstack-project" })
 
 // Set up different windows for different tasks
-run_command("bun run dev", "frontend", "fullstack-project")
-run_command("bun run server", "backend", "fullstack-project")
-run_command("docker-compose up", "database", "fullstack-project")
-run_command("bun test -- --watch", "tests", "fullstack-project")
+run_command({ command: "bun run dev", window_name: "frontend", workspace_id: "fullstack-project" })
+run_command({ command: "bun run server", window_name: "backend", workspace_id: "fullstack-project" })
+run_command({ command: "docker-compose up", window_name: "database", workspace_id: "fullstack-project" })
+run_command({ command: "bun test -- --watch", window_name: "tests", workspace_id: "fullstack-project" })
 
-// Monitor all components
-get_output("frontend", "fullstack-project", 10)
-get_output("backend", "fullstack-project", 10)
-get_output("database", "fullstack-project", 10)
+// Monitor all components (last 10 lines each)
+get_output({ window_name: "frontend", workspace_id: "fullstack-project", lines: 10 })
+get_output({ window_name: "backend", workspace_id: "fullstack-project", lines: 10 })
+get_output({ window_name: "database", workspace_id: "fullstack-project", lines: 10 })
 ```
 
 ## Testing and CI/CD
@@ -260,28 +303,28 @@ get_output("database", "fullstack-project", 10)
 ### Running Tests
 ```javascript
 // Run test suite
-run_command("bun test", "test-runner", "test-workspace")
+run_command({ command: "bun test", window_name: "test-runner", workspace_id: "test-workspace" })
 
-// Monitor test progress
-get_output("test-runner", "test-workspace")
+// Monitor test progress (returns all scrollback history)
+get_output({ window_name: "test-runner", workspace_id: "test-workspace" })
 
 // Run specific test in another window
-run_command("bun test -- --grep 'user authentication'", "specific-test", "test-workspace")
+run_command({ command: "bun test -- --grep 'user authentication'", window_name: "specific-test", workspace_id: "test-workspace" })
 
-// Check results
-get_output("specific-test", "test-workspace")
+// Check results (returns all scrollback history)
+get_output({ window_name: "specific-test", workspace_id: "test-workspace" })
 ```
 
 ### CI/CD Pipeline
 ```javascript
 // Start CI pipeline
-run_command("./ci-pipeline.sh", "ci-pipeline", "ci-workspace")
+run_command({ command: "./ci-pipeline.sh", window_name: "ci-pipeline", workspace_id: "ci-workspace" })
 
-// Monitor pipeline progress
-get_output("ci-pipeline", "ci-workspace", 50)
+// Monitor pipeline progress (last 50 lines)
+get_output({ window_name: "ci-pipeline", workspace_id: "ci-workspace", lines: 50 })
 
-// Check for errors
-get_output("ci-pipeline", "ci-workspace", 100, "error|failed")
+// Check for errors (last 100 lines with search)
+get_output({ window_name: "ci-pipeline", workspace_id: "ci-workspace", lines: 100, search: "error|failed" })
 ```
 
 ## Troubleshooting Scenarios
@@ -289,16 +332,16 @@ get_output("ci-pipeline", "ci-workspace", 100, "error|failed")
 ### Debugging Hanging Process
 ```javascript
 // Start potentially problematic command
-run_command("problematic-command", "debug-window", "debug-workspace")
+run_command({ command: "problematic-command", window_name: "debug-window", workspace_id: "debug-workspace" })
 
-// Check if it's running
-get_output("debug-window", "debug-workspace")
+// Check if it's running (returns all scrollback history)
+get_output({ window_name: "debug-window", workspace_id: "debug-workspace" })
 
 // If stuck, terminate
-send_keys("C-c", "debug-window", "debug-workspace")
+send_keys({ keys: "C-c", window_name: "debug-window", workspace_id: "debug-workspace" })
 
-// Check final state
-get_output("debug-window", "debug-workspace")
+// Check final state (returns all scrollback history)
+get_output({ window_name: "debug-window", workspace_id: "debug-workspace" })
 ```
 
 ### Process Recovery
@@ -306,12 +349,12 @@ get_output("debug-window", "debug-workspace")
 // Check workspace status
 list_workspaces()
 
-// Check terminal state
-get_output("problematic-window", "my-workspace")
+// Check terminal state (returns all scrollback history)
+get_output({ window_name: "problematic-window", workspace_id: "my-workspace" })
 
 // Restart process if needed
-send_keys("C-c", "problematic-window", "my-workspace")
-run_command("restart-command", "problematic-window", "my-workspace")
+send_keys({ keys: "C-c", window_name: "problematic-window", workspace_id: "my-workspace" })
+run_command({ command: "restart-command", window_name: "problematic-window", workspace_id: "my-workspace" })
 ```
 
 ## Advanced Patterns
@@ -319,32 +362,32 @@ run_command("restart-command", "problematic-window", "my-workspace")
 ### Command Chaining
 ```javascript
 // Start first command
-run_command("command1", "chain-window", "chain-workspace")
+run_command({ command: "command1", window_name: "chain-window", workspace_id: "chain-workspace" })
 
-// Wait for completion and check result
-get_output("chain-window", "chain-workspace")
+// Wait for completion and check result (returns all scrollback history)
+get_output({ window_name: "chain-window", workspace_id: "chain-workspace" })
 
 // Start second command based on first result
-send_input("command2", "chain-window", "chain-workspace")
+send_input({ text: "command2", window_name: "chain-window", workspace_id: "chain-workspace" })
 
-// Continue chain
-get_output("chain-window", "chain-workspace")
+// Continue chain (returns all scrollback history)
+get_output({ window_name: "chain-window", workspace_id: "chain-workspace" })
 ```
 
 ### Parallel Processing
 ```javascript
 // Create workspace for parallel work
-create_workspace("parallel-work")
+create_workspace({ workspace_id: "parallel-work" })
 
 // Start multiple processes in different windows
-run_command("process1", "worker-1", "parallel-work")
-run_command("process2", "worker-2", "parallel-work")
-run_command("process3", "worker-3", "parallel-work")
+run_command({ command: "process1", window_name: "worker-1", workspace_id: "parallel-work" })
+run_command({ command: "process2", window_name: "worker-2", workspace_id: "parallel-work" })
+run_command({ command: "process3", window_name: "worker-3", workspace_id: "parallel-work" })
 
-// Monitor all processes
-get_output("worker-1", "parallel-work", 10)
-get_output("worker-2", "parallel-work", 10)
-get_output("worker-3", "parallel-work", 10)
+// Monitor all processes (last 10 lines each)
+get_output({ window_name: "worker-1", workspace_id: "parallel-work", lines: 10 })
+get_output({ window_name: "worker-2", workspace_id: "parallel-work", lines: 10 })
+get_output({ window_name: "worker-3", workspace_id: "parallel-work", lines: 10 })
 ```
 
 ## MCP Resources

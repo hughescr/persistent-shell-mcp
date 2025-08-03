@@ -93,8 +93,7 @@ describe('MCP Interface E2E Tests', () => {
             }
         });
 
-        serverProcess.stderr.on('data', (data) => {
-            const message = data.toString();
+        serverProcess.stderr.on('data', (_data) => {
             // Ignore stderr during tests
         });
     });

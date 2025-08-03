@@ -81,7 +81,7 @@ Capture terminal output with two modes:
 get_output({
   workspace_id: "my-project", // workspace_id not available if MCP server running inside tmux already
   window_name: "server",
-  lines: 50  // optional, defaults to visible screen
+  lines: 50  // optional, defaults to all scrollback history
 })
 ```
 
