@@ -1,6 +1,6 @@
 {
   "name": "tmux-mcp-server",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "A simplified and elegant MCP server for persistent shell execution via tmux.",
   "keywords": [
     "mcp",
@@ -12,10 +12,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/TNTisdial/persistent-shell-mcp.git"
+    "url": "https://github.com/hughescr/persistent-shell-mcp.git"
   },
   "license": "MIT",
-  "author": "Gemini",
+  "author": "Craig Hughes <craig.git@rungie.com>",
   "type": "module",
   "main": "src/index.js",
   "bin": {

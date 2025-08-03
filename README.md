@@ -2,6 +2,10 @@
 
 A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute commands in persistent shells that maintain state across multiple interactions.
 
+## Fork Acknowledgment
+
+This project is a fork of the original [persistent-shell-mcp](https://github.com/TNTisdial/persistent-shell-mcp) by TNTisdial. The fork has been enhanced with parent tmux session detection and other improvements.
+
 ## Features
 
 - **Persistent Shell Sessions**: Execute commands in tmux sessions that persist across MCP client restarts
@@ -33,7 +37,7 @@ npm install -g tmux-mcp-server
 ### Install from source
 
 ```bash
-git clone https://github.com/TNTisdial/persistent-shell-mcp.git
+git clone https://github.com/hughescr/persistent-shell-mcp.git
 cd persistent-shell-mcp
 npm install
 npm link
@@ -175,8 +179,8 @@ run_command({ command: "npm run dev", workspace_id: "myapp", window_name: "serve
 get_output({ workspace_id: "myapp", window_name: "server" })
 
 // Search for errors
-get_output({ 
-  workspace_id: "myapp", 
+get_output({
+  workspace_id: "myapp",
   window_name: "server",
   search: { pattern: "error|failed", context_lines: 3 }
 })
@@ -245,6 +249,24 @@ run_command({ command: "npm test", window_name: "tests" })
 get_output({ window_name: "tests" })
 send_keys({ keys: ["C-c"], window_name: "tests" })
 ```
+
+### Running Claude Code in tmux with Control Mode
+
+You can run Claude Code inside tmux with control mode enabled (`-CC` flag) to monitor the windows that the MCP server creates in your terminal application. This provides a visual way to see what commands are running:
+
+```bash
+# Start or attach to a tmux session with control mode
+tmux -CC new -A -n Claude -s persistent-shell bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json
+```
+
+This command:
+- `-CC`: Enables tmux control mode for terminal integration
+- `new -A`: Creates a new session or attaches to existing one
+- `-n Claude`: Names the initial window "Claude"
+- `-s persistent-shell`: Names the session "persistent-shell"
+- Runs Claude Code with your MCP configuration
+
+When using this setup, the tmux MCP server will detect it's running inside the "persistent-shell" session and automatically use that session for all operations. New windows created by the MCP server will appear in your terminal's tab bar or window list (assuming you're using something like iTerm with `tmux -CC` support).
 
 ## Troubleshooting
 
