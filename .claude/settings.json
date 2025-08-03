@@ -1,0 +1,12 @@
+{
+    "enableAllProjectMcpServers": true,
+
+    "permissions": {
+        "allow": [
+            "mcp__eslint",
+            "mcp__language-server",
+            "mcp__tmux"
+        ],
+        "deny": []
+    }
+}

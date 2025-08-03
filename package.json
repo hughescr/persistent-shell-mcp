@@ -8,6 +8,7 @@
     "tmux-mcp-server": "./bin/tmux-mcp-server"
   },
   "scripts": {
+    "claude": "tmux -CC new -A -n Claude -s persistent-shell bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
     "start": "./bin/tmux-mcp-server",
     "test": "bun test",
     "test:coverage": "bun test --coverage"
