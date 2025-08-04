@@ -31,8 +31,18 @@ describe('TmuxMcpServer', () => {
     });
 
     afterEach(() => {
+        // Restore console.error first to ensure it happens even if other cleanup fails
+        if(consoleErrorSpy && _.isFunction(consoleErrorSpy.mockRestore)) {
+            try {
+                consoleErrorSpy.mockRestore();
+                consoleErrorSpy = undefined;
+            } catch{
+                // Ignore restoration errors - the mock might already be restored
+                consoleErrorSpy = undefined;
+            }
+        }
+
         mock.restore();
-        consoleErrorSpy.mockRestore();
     });
 
     describe('constructor', () => {

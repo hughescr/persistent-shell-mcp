@@ -2,6 +2,8 @@ import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll, spy
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { isFunction } from 'lodash';
+import { waitForOutput } from '../test-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,30 +56,55 @@ describe('MCP Interface E2E Tests', () => {
     let messages = [];
     let messageId = 1;
     let consoleErrorSpy;
+    let originalTmux;
+    let originalTmuxPane;
 
     beforeAll(async () => {
         await cleanupTmuxSessions();
+
+        // Ensure any leftover mocks are restored before starting tests
+        if(console.error.mockRestore && isFunction(console.error.mockRestore)) {
+            try {
+                console.error.mockRestore();
+            } catch{
+                // Ignore - mock might not exist
+            }
+        }
     });
 
     afterAll(async () => {
         await cleanupTmuxSessions();
+
+        // Final cleanup of any remaining mocks
+        if(console.error.mockRestore && isFunction(console.error.mockRestore)) {
+            try {
+                console.error.mockRestore();
+            } catch{
+                // Ignore - mock might not exist
+            }
+        }
     });
 
     beforeEach(() => {
         messages = [];
         messageId = 1;
 
+        // Save original tmux environment variables
+        originalTmux = process.env.TMUX;
+        originalTmuxPane = process.env.TMUX_PANE;
+
         // Mock console.error to suppress error output during tests
         consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
+
+        // Create clean environment without tmux variables
+        const cleanEnv = { ...process.env };
+        delete cleanEnv.TMUX;
+        delete cleanEnv.TMUX_PANE;
 
         // Start the MCP server
         serverProcess = spawn('bun', [serverPath], {
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: {
-                ...process.env,
-                TMUX: undefined,
-                TMUX_PANE: undefined
-            }
+            env: cleanEnv
         });
 
         // Capture server output
@@ -99,15 +126,55 @@ describe('MCP Interface E2E Tests', () => {
     });
 
     afterEach(async () => {
-        if(serverProcess && !serverProcess.killed) {
-            serverProcess.kill();
-            await new Promise((resolve) => {
-                serverProcess.on('close', resolve);
-            });
+        // Restore original tmux environment variables first
+        if(originalTmux !== undefined) {
+            process.env.TMUX = originalTmux;
+        } else {
+            delete process.env.TMUX;
         }
 
-        // Restore console.error
-        consoleErrorSpy.mockRestore();
+        if(originalTmuxPane !== undefined) {
+            process.env.TMUX_PANE = originalTmuxPane;
+        } else {
+            delete process.env.TMUX_PANE;
+        }
+
+        // Restore console.error immediately to ensure it happens even if server cleanup fails
+        if(consoleErrorSpy && isFunction(consoleErrorSpy.mockRestore)) {
+            try {
+                consoleErrorSpy.mockRestore();
+                consoleErrorSpy = undefined; // Clear reference to avoid confusion
+            } catch{
+                // Ignore restoration errors - the mock might already be restored
+                consoleErrorSpy = undefined;
+            }
+        }
+
+        // Clean up server process
+        if(serverProcess && !serverProcess.killed) {
+            try {
+                serverProcess.kill();
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Server process cleanup timeout'));
+                    }, 5000);
+
+                    serverProcess.on('close', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+
+                    serverProcess.on('error', () => {
+                        clearTimeout(timeout);
+                        resolve(); // Resolve anyway to continue cleanup
+                    });
+                });
+            } catch(error) {
+                // Log but don't fail on server cleanup errors
+                // The console.error spy is already restored, so this will show in output
+                console.error('Server cleanup error:', error);
+            }
+        }
     });
 
     function sendRequest(method, params = {}) {
@@ -244,16 +311,8 @@ describe('MCP Interface E2E Tests', () => {
         });
         expect(runResponse.result.content[0].text).toBe('Started command in e2e-workflow:main');
 
-        // Wait a bit for command to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Get output
-        const outputResponse = await sendRequest('tools/call', {
-            name: 'get_output',
-            arguments: {
-                workspace_id: 'e2e-workflow'
-            }
-        });
+        // Wait for command to complete using polling
+        const outputResponse = await waitForOutput(sendRequest, 'e2e-workflow', 'Testing 123');
         expect(outputResponse.result.content[0].text).toContain('Testing 123');
 
         // List workspaces
@@ -348,8 +407,8 @@ describe('MCP Interface E2E Tests', () => {
             }
         });
 
-        // Wait for command to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for command to complete using polling
+        await waitForOutput(sendRequest, 'e2e-search', 'WARNING: Test warning');
 
         // Search for error and warning
         const searchResponse = await sendRequest('tools/call', {
@@ -433,25 +492,9 @@ describe('MCP Interface E2E Tests', () => {
             }
         });
 
-        // Wait for commands
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Get output from each window
-        const output1 = await sendRequest('tools/call', {
-            name: 'get_output',
-            arguments: {
-                workspace_id: 'e2e-multi',
-                window_name: 'window1'
-            }
-        });
-
-        const output2 = await sendRequest('tools/call', {
-            name: 'get_output',
-            arguments: {
-                workspace_id: 'e2e-multi',
-                window_name: 'window2'
-            }
-        });
+        // Wait for commands using polling
+        const output1 = await waitForOutput(sendRequest, 'e2e-multi', 'Window 1', 'window1');
+        const output2 = await waitForOutput(sendRequest, 'e2e-multi', 'Window 2', 'window2');
 
         expect(output1.result.content[0].text).toContain('Window 1');
         expect(output2.result.content[0].text).toContain('Window 2');

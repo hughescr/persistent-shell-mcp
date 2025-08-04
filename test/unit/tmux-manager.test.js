@@ -1,16 +1,19 @@
 import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 import { EventEmitter } from 'events';
 import * as child_process from 'child_process';
+import { isFunction } from 'lodash';
 import TmuxManager from '../../src/tmux-manager.js';
 
 describe('TmuxManager', () => {
     let tmuxManager;
     let mockSpawn;
-    let originalEnv;
+    let originalTmux;
+    let originalTmuxPane;
 
     beforeEach(() => {
-    // Save original environment
-        originalEnv = { ...process.env };
+        // Save original tmux environment variables
+        originalTmux = process.env.TMUX;
+        originalTmuxPane = process.env.TMUX_PANE;
 
         // Clear tmux environment variables by default
         delete process.env.TMUX;
@@ -24,8 +27,27 @@ describe('TmuxManager', () => {
     });
 
     afterEach(() => {
-    // Restore original environment
-        process.env = originalEnv;
+        // Restore original tmux environment variables
+        if(originalTmux !== undefined) {
+            process.env.TMUX = originalTmux;
+        } else {
+            delete process.env.TMUX;
+        }
+
+        if(originalTmuxPane !== undefined) {
+            process.env.TMUX_PANE = originalTmuxPane;
+        } else {
+            delete process.env.TMUX_PANE;
+        }
+
+        // Clear tmuxManager state to ensure test isolation
+        if(tmuxManager) {
+            tmuxManager.sessionMetadata.clear();
+            tmuxManager.parentSession = null;
+            tmuxManager.parentWindow = null;
+            tmuxManager.isUsingParentSession = false;
+        }
+
         mock.restore();
     });
 
@@ -418,6 +440,26 @@ describe('TmuxManager', () => {
     });
 
     describe('parent session detection', () => {
+        let consoleErrorSpy;
+
+        beforeEach(() => {
+            // Set up console.error spy for tests that need it
+            consoleErrorSpy = null;
+        });
+
+        afterEach(() => {
+            // Clean up console.error spy if it was used
+            if(consoleErrorSpy && isFunction(consoleErrorSpy.mockRestore)) {
+                try {
+                    consoleErrorSpy.mockRestore();
+                    consoleErrorSpy = null;
+                } catch{
+                    // Ignore restoration errors
+                    consoleErrorSpy = null;
+                }
+            }
+        });
+
         test('detects when running inside tmux', async () => {
             // Set tmux environment variables
             process.env.TMUX = '/tmp/tmux-1000/default,12345,0';
@@ -453,15 +495,13 @@ describe('TmuxManager', () => {
             mockSpawn.mockReturnValueOnce(createMockProcess('', 'error', 1));
 
             // Spy on console.error to verify error logging
-            const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
+            consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
 
             tmuxManager = new TmuxManager();
             await tmuxManager.ensureInitialized();
 
             expect(tmuxManager.isUsingParentSession).toBe(false);
             expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to detect parent tmux session:', expect.any(String));
-
-            consoleErrorSpy.mockRestore();
         });
     });
 

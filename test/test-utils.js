@@ -121,6 +121,34 @@ export function waitFor(condition, timeout = 1000) {
     });
 }
 
+// Helper to wait for command output to contain expected text
+export async function waitForOutput(sendRequest, workspace_id, expectedText, window_name = 'main', timeout = 5000) {
+    const startTime = Date.now();
+
+    while(Date.now() - startTime < timeout) {
+        try {
+            const response = await sendRequest('tools/call', {
+                name: 'get_output',
+                arguments: {
+                    workspace_id,
+                    window_name
+                }
+            });
+
+            if(response.result?.content?.[0]?.text?.includes(expectedText)) {
+                return response;
+            }
+        } catch{
+            // Ignore errors and continue polling
+        }
+
+        // Wait a bit before polling again
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    throw new Error(`Timeout waiting for output containing "${expectedText}" in ${workspace_id}:${window_name}`);
+}
+
 // Helper to clean up tmux sessions after tests
 export async function cleanupTmuxSessions() {
     const { spawn } = await import('child_process');

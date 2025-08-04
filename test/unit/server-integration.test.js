@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import { isFunction } from 'lodash';
 import TmuxMcpServer from '../../src/server.js';
 
 describe('TmuxMcpServer Integration Tests', () => {
@@ -33,8 +34,18 @@ describe('TmuxMcpServer Integration Tests', () => {
     });
 
     afterEach(() => {
+        // Restore console.error first to ensure it happens even if other cleanup fails
+        if(consoleErrorSpy && isFunction(consoleErrorSpy.mockRestore)) {
+            try {
+                consoleErrorSpy.mockRestore();
+                consoleErrorSpy = undefined;
+            } catch{
+                // Ignore restoration errors - the mock might already be restored
+                consoleErrorSpy = undefined;
+            }
+        }
+
         mock.restore();
-        consoleErrorSpy.mockRestore();
     });
 
     describe('Tool Definitions', () => {

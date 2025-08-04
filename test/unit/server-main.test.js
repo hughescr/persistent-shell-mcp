@@ -15,7 +15,7 @@ describe('server.js main execution', () => {
     });
 
     test('server runs when executed as main module', (done) => {
-    // Start server as a child process
+        // Start server as a child process
         const serverProcess = spawn('bun', [serverPath], {
             stdio: ['pipe', 'pipe', 'pipe'],
             env: { ...process.env, NODE_ENV: 'test' }
@@ -27,11 +27,43 @@ describe('server.js main execution', () => {
             errorOutput += data.toString();
         });
 
+        const cleanup = () => {
+            if(serverProcess && !serverProcess.killed) {
+                serverProcess.kill();
+
+                // Wait for process to actually terminate
+                const timeoutId = setTimeout(() => {
+                    // Force kill if still running after timeout
+                    if(!serverProcess.killed) {
+                        serverProcess.kill('SIGKILL');
+                    }
+                    done();
+                }, 2000);
+
+                serverProcess.on('close', () => {
+                    clearTimeout(timeoutId);
+                    done();
+                });
+
+                serverProcess.on('error', () => {
+                    clearTimeout(timeoutId);
+                    done();
+                });
+            } else {
+                done();
+                return;
+            }
+        };
+
         // Give it a moment to start
         setTimeout(() => {
-            expect(errorOutput).toContain('Tmux MCP Server running on stdio');
-            serverProcess.kill();
-            done();
+            try {
+                expect(errorOutput).toContain('Tmux MCP Server running on stdio');
+                cleanup();
+            } catch(error) {
+                cleanup();
+                throw error;
+            }
         }, 1000);
     });
 });
