@@ -15,7 +15,7 @@ class TmuxMcpServer {
         this.server = new Server(
             {
                 name: 'tmux-mcp-server',
-                version: '2.0.0',
+                version: '3.0.0',
             },
             {
                 capabilities: {
@@ -202,6 +202,23 @@ class TmuxMcpServer {
         return tools;
     }
 
+    // Helper methods to reduce code duplication
+    _getSessionId(workspace_id = 'default') {
+        return this.tmuxManager.isUsingParentSession ? 'default' : workspace_id;
+    }
+
+    _getLocationDescription(workspace_id, window_name) {
+        return this.tmuxManager.isUsingParentSession
+            ? window_name
+            : `${workspace_id}:${window_name}`;
+    }
+
+    _getScrollbackLocationDescription(workspace_id) {
+        return this.tmuxManager.isUsingParentSession
+            ? 'current session'
+            : `workspace ${workspace_id}`;
+    }
+
     getResourceDefinitions() {
         return [
             {
@@ -220,21 +237,19 @@ class TmuxMcpServer {
     }
 
     async handleRunCommand(args) {
-        const isParentSession = this.tmuxManager.isUsingParentSession;
         const { command, workspace_id = 'default', window_name = 'main' } = args;
-        const sessionId = isParentSession ? 'default' : workspace_id;
+        const sessionId = this._getSessionId(workspace_id);
 
         await this.tmuxManager.createSession(sessionId);
         await this.tmuxManager.sendKeys(sessionId, window_name, [...command, 'C-m']);
 
-        const location = isParentSession ? window_name : `${workspace_id}:${window_name}`;
+        const location = this._getLocationDescription(workspace_id, window_name);
         return { content: [{ type: 'text', text: `Started command in ${location}` }] };
     }
 
     async handleGetOutput(args) {
-        const isParentSession = this.tmuxManager.isUsingParentSession;
         const { workspace_id = 'default', window_name = 'main', lines, search } = args;
-        const sessionId = isParentSession ? 'default' : workspace_id;
+        const sessionId = this._getSessionId(workspace_id);
 
         // Validate that both lines and search aren't specified
         if(lines !== undefined && search !== undefined) {
@@ -260,24 +275,22 @@ class TmuxMcpServer {
     }
 
     async handleSendInput(args) {
-        const isParentSession = this.tmuxManager.isUsingParentSession;
         const { text, workspace_id = 'default', window_name = 'main' } = args;
-        const sessionId = isParentSession ? 'default' : workspace_id;
+        const sessionId = this._getSessionId(workspace_id);
 
         await this.tmuxManager.sendKeys(sessionId, window_name, [...text, 'C-m']);
 
-        const location = isParentSession ? window_name : `${workspace_id}:${window_name}`;
+        const location = this._getLocationDescription(workspace_id, window_name);
         return { content: [{ type: 'text', text: `Sent input to ${location}` }] };
     }
 
     async handleSendKeys(args) {
-        const isParentSession = this.tmuxManager.isUsingParentSession;
         const { keys, workspace_id = 'default', window_name = 'main' } = args;
-        const sessionId = isParentSession ? 'default' : workspace_id;
+        const sessionId = this._getSessionId(workspace_id);
 
         await this.tmuxManager.sendKeys(sessionId, window_name, keys);
 
-        const location = isParentSession ? window_name : `${workspace_id}:${window_name}`;
+        const location = this._getLocationDescription(workspace_id, window_name);
         return { content: [{ type: 'text', text: `Sent keys to ${location}` }] };
     }
 
@@ -312,9 +325,8 @@ class TmuxMcpServer {
     }
 
     async handleScrollbackSize(args) {
-        const isParentSession = this.tmuxManager.isUsingParentSession;
         const { workspace_id = 'default', lines } = args;
-        const sessionId = isParentSession ? 'default' : workspace_id;
+        const sessionId = this._getSessionId(workspace_id);
 
         // Ensure session exists (but don't create if just getting the value)
         if(lines !== undefined) {
@@ -324,13 +336,13 @@ class TmuxMcpServer {
         if(lines !== undefined) {
             // SET mode - set the scrollback size
             await this.tmuxManager.setScrollbackSize(sessionId, lines);
-            const location = isParentSession ? 'current session' : `workspace ${workspace_id}`;
+            const location = this._getScrollbackLocationDescription(workspace_id);
             const limitText = lines === 0 ? 'unlimited' : `${lines} lines`;
             return { content: [{ type: 'text', text: `Set scrollback size to ${limitText} for ${location}` }] };
         } else {
             // GET mode - return current scrollback size
             const currentSize = await this.tmuxManager.getScrollbackSize(sessionId);
-            const location = isParentSession ? 'current session' : `workspace ${workspace_id}`;
+            const location = this._getScrollbackLocationDescription(workspace_id);
             const limitText = currentSize === 0 ? 'unlimited' : `${currentSize} lines`;
 
             // Estimate memory usage

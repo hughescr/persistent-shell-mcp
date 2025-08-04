@@ -4,12 +4,25 @@
   "description": "A simplified and elegant MCP server for persistent shell execution via tmux.",
   "keywords": [
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "tmux",
     "shell",
+    "terminal",
     "persistent",
+    "persistent-shell",
     "command",
-    "execution"
+    "command-execution",
+    "execution",
+    "ai-assistant",
+    "claude",
+    "anthropic",
+    "devtools"
   ],
+  "homepage": "https://github.com/hughescr/persistent-shell-mcp",
+  "bugs": {
+    "url": "https://github.com/hughescr/persistent-shell-mcp/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/hughescr/persistent-shell-mcp.git"

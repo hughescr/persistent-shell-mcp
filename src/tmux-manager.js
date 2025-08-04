@@ -1,6 +1,10 @@
 import { spawn } from 'child_process';
 import _ from 'lodash';
 
+// Constants
+const DEFAULT_TMUX_TIMEOUT = 10000; // 10 seconds
+const DEFAULT_SCROLLBACK_SIZE = 50000; // 50k lines for new sessions
+
 class TmuxManager {
     constructor() {
         this.sessionMetadata = new Map();
@@ -43,7 +47,7 @@ class TmuxManager {
         await this._detectionPromise;
     }
 
-    async _runTmuxCommand(args, timeout = 10000) {
+    async _runTmuxCommand(args, timeout = DEFAULT_TMUX_TIMEOUT) {
         return new Promise((resolve, reject) => {
             const process = spawn('tmux', args, { stdio: ['pipe', 'pipe', 'pipe'] });
             let stdout = '', stderr = '', timeoutId = null;
@@ -138,8 +142,8 @@ class TmuxManager {
         // This ensures adequate scrollback history for debugging and reviewing command output
         try {
             const currentLimit = await this.getScrollbackSize(sessionId);
-            if(currentLimit < 50000) {
-                await this.setScrollbackSize(sessionId, 50000);
+            if(currentLimit < DEFAULT_SCROLLBACK_SIZE) {
+                await this.setScrollbackSize(sessionId, DEFAULT_SCROLLBACK_SIZE);
             }
         } catch(error) {
             // Don't fail workspace creation if setting scrollback fails - just log warning

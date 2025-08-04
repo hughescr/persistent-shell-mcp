@@ -2,6 +2,22 @@
 
 A Model Context Protocol (MCP) server that provides persistent shell execution through tmux sessions. This server enables AI assistants to execute commands in persistent shells that maintain state across multiple interactions.
 
+## Table of Contents
+
+- [Fork Acknowledgment](#fork-acknowledgment)
+- [Features](#features)
+- [Installation](#installation)
+- 🚨🚨[Security](#security)🚨🚨
+- [Usage](#usage)
+- [Available Tools](#available-tools)
+- [Available Resources](#available-resources)
+- [Scrollback Buffer Management](#scrollback-buffer-management)
+- [Examples](#examples)
+- [Common Workflows](#common-workflows)
+- [Architecture](#architecture)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
 ## Fork Acknowledgment
 
 This project is a fork of the original [persistent-shell-mcp](https://github.com/TNTisdial/persistent-shell-mcp) by TNTisdial. The fork has been enhanced with parent tmux session detection and other improvements.
@@ -27,6 +43,34 @@ This project is a fork of the original [persistent-shell-mcp](https://github.com
   - Ubuntu/Debian: `sudo apt install tmux`
   - macOS: `brew install tmux`
   - CentOS/RHEL: `sudo yum install tmux`
+
+## Security
+
+**⚠️ IMPORTANT SECURITY NOTICE ⚠️**
+
+This MCP server executes arbitrary shell commands with your user privileges. Please review the comprehensive security documentation before use:
+
+**[📋 Read SECURITY.md](SECURITY.md)** - Complete security guide covering:
+- Security risks and threat model
+- Input validation and command injection prevention
+- Workspace isolation and access controls
+- Secure deployment practices
+- Monitoring and incident response
+- Best practices for safe usage
+
+Key security considerations:
+- Commands run with full user privileges
+- No built-in sandboxing or command filtering
+- All command output is accessible
+- File system and network access available
+- Resource exhaustion possible
+
+**Recommended for security-conscious users:**
+- Use dedicated user accounts with limited privileges
+- Deploy in containers or isolated environments
+- Implement monitoring and logging
+- Review all commands before execution
+- Avoid use with sensitive data or production systems
 
 ## Usage
 
@@ -59,6 +103,19 @@ or if you prefer npm/npx:
 ```
 
 ## Available Tools
+
+### Quick Reference
+
+| Tool Name | Description | Link to Section |
+|-----------|-------------|-----------------|
+| `run_command` | Start a command in a tmux window and return immediately | [run_command](#run_command) |
+| `get_output` | Capture terminal output with lines or search mode | [get_output](#get_output) |
+| `send_input` | Send text to a window (automatically appends Enter) | [send_input](#send_input) |
+| `send_keys` | Send special key sequences using tmux syntax | [send_keys](#send_keys) |
+| `scrollback_size` | Get or set scrollback buffer size for workspace/session | [scrollback_size](#scrollback_size) |
+| `create_workspace` | Create a new workspace with a "main" window | [create_workspace](#create_workspace) |
+| `destroy_workspace` | Destroy a workspace and all its windows | [destroy_workspace](#destroy_workspace) |
+| `list_workspaces` | List all active workspaces and their windows | [list_workspaces](#list_workspaces) |
 
 ### `run_command`
 Start a command in a tmux window and return immediately.

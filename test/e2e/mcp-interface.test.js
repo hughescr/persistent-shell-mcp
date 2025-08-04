@@ -215,7 +215,7 @@ describe('MCP Interface E2E Tests', () => {
 
         expect(response.result.protocolVersion).toBeDefined();
         expect(response.result.serverInfo.name).toBe('tmux-mcp-server');
-        expect(response.result.serverInfo.version).toBe('2.0.0');
+        expect(response.result.serverInfo.version).toBe('3.0.0');
     });
 
     test('lists available tools', async () => {

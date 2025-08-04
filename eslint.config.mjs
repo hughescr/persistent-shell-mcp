@@ -9,6 +9,7 @@ export default
     },
     defaultConfig.configs.recommended,
     {
+        files: ['**/*.js', 'bin/*'],
         rules: {
             'no-console': 'off',
             '@stylistic/operator-linebreak': 'off',
