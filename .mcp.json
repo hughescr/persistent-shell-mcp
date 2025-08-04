@@ -7,6 +7,10 @@
         "eslint": {
             "command": "bunx",
             "args": ["--bun", "@eslint/mcp@latest"]
+        },
+        "tmux": {
+            "command": "bunx",
+            "args": ["--bun", "@hughescr/tmux-mcp-server@latest"]
         }
     }
 }
