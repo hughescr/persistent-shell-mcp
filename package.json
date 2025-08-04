@@ -43,6 +43,7 @@
   ],
   "scripts": {
     "claude": "tmux -CC new -A -n Claude -s persistent-shell bunx --bun @anthropic-ai/claude-code@latest --mcp-config ~/.claude/mcp.json",
+    "postversion": "git commit -m \"Bump package version to $npm_package_version\" package.json; git flow release start $npm_package_version; git flow release finish -m $npm_package_version $npm_package_version; git checkout develop; git merge main",
     "start": "./bin/tmux-mcp-server",
     "test": "bun test",
     "test:coverage": "bun test --coverage"
