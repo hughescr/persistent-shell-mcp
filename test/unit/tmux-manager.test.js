@@ -514,6 +514,12 @@ describe('TmuxManager', () => {
             // Mock successful parent detection
             mockSpawn.mockReturnValueOnce(createMockProcess('parent-session parent-window\n'));
 
+            // Mock getScrollbackSize call (returns default value)
+            mockSpawn.mockReturnValueOnce(createMockProcess('history-limit 2000\n'));
+
+            // Mock setScrollbackSize call
+            mockSpawn.mockReturnValueOnce(createMockProcess(''));
+
             tmuxManager = new TmuxManager();
             await tmuxManager.ensureInitialized();
         });
@@ -521,7 +527,7 @@ describe('TmuxManager', () => {
         test('sessionExists returns true for default when using parent session', async () => {
             const exists = await tmuxManager.sessionExists('default');
             expect(exists).toBe(true);
-            expect(mockSpawn).toHaveBeenCalledTimes(1); // Only for detection
+            expect(mockSpawn).toHaveBeenCalledTimes(3); // Detection + getScrollbackSize + setScrollbackSize
         });
 
         test('sessionExists returns true for parent session name', async () => {
@@ -531,7 +537,7 @@ describe('TmuxManager', () => {
 
         test('createSession does nothing when using parent session', async () => {
             await tmuxManager.createSession('default');
-            expect(mockSpawn).toHaveBeenCalledTimes(1); // Only initial detection
+            expect(mockSpawn).toHaveBeenCalledTimes(3); // Detection + getScrollbackSize + setScrollbackSize
         });
 
         test('destroySession throws error when using parent session', async () => {
@@ -542,7 +548,7 @@ describe('TmuxManager', () => {
         test('listSessions returns only default when using parent session', async () => {
             const sessions = await tmuxManager.listSessions();
             expect(sessions).toEqual(['default']);
-            expect(mockSpawn).toHaveBeenCalledTimes(1); // Only initial detection
+            expect(mockSpawn).toHaveBeenCalledTimes(3); // Detection + getScrollbackSize + setScrollbackSize
         });
 
         test('listWindows excludes parent window', async () => {

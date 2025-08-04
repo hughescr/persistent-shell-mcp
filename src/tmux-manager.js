@@ -37,6 +37,18 @@ class TmuxManager {
                 this.parentWindow = window;
                 this.isUsingParentSession = true;
                 console.error(`Detected parent tmux session: ${session}, window: ${window}`);
+
+                // Set default scrollback size for parent session if it's too small
+                try {
+                    const currentLimit = await this.getScrollbackSize('default');
+                    if(currentLimit < DEFAULT_SCROLLBACK_SIZE) {
+                        await this.setScrollbackSize('default', DEFAULT_SCROLLBACK_SIZE);
+                        console.error(`Set scrollback size to ${DEFAULT_SCROLLBACK_SIZE} lines for parent session`);
+                    }
+                } catch(error) {
+                    // Don't fail parent session detection if setting scrollback fails
+                    console.warn(`Failed to set default scrollback size for parent session: ${error.message}`);
+                }
             }
         } catch(error) {
             console.error('Failed to detect parent tmux session:', error.message);
@@ -294,6 +306,11 @@ class TmuxManager {
             const result = await this._runTmuxCommand(['show', '-s', '-t', targetSession, 'history-limit']);
             const output = _.trim(result.stdout);
 
+            // If output is empty, history-limit is not set - return tmux default
+            if(!output) {
+                return 2000; // tmux default when history-limit is not set
+            }
+
             // Output format is "history-limit 2000" - extract the number
             const match = output.match(/history-limit\s+(\d+)/);
             if(match) {
@@ -308,7 +325,7 @@ class TmuxManager {
                 return value;
             }
 
-            throw new Error('Could not parse history-limit value');
+            throw new Error(`Could not parse history-limit value from tmux output: "${output}"`);
         } catch(error) {
             throw new Error(`Failed to get scrollback size: ${error.message}`);
         }
