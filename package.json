@@ -1,6 +1,6 @@
 {
   "name": "@hughescr/tmux-mcp-server",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A simplified and elegant MCP server for persistent shell execution via tmux.",
   "keywords": [
     "mcp",
