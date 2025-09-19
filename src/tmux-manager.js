@@ -4,13 +4,33 @@ import _ from 'lodash';
 // Constants
 const DEFAULT_TMUX_TIMEOUT = 10000; // 10 seconds
 const DEFAULT_SCROLLBACK_SIZE = 50000; // 50k lines for new sessions
+const PANE_DETECTION_FORMAT = '#{pane_tty}::#{session_name}::#{window_name}';
+
+async function defaultGetTTYForPid(pid) {
+    try {
+        const { default: systeminformation } = await import('systeminformation');
+        if(!systeminformation?.processes) {
+            return null;
+        }
+
+        const { list } = await systeminformation.processes();
+        const parent = _.find(list, ({ pid: processId }) => processId === pid);
+        return parent?.tty || null;
+    } catch(error) {
+        if(error?.code !== 'ERR_MODULE_NOT_FOUND' && error?.code !== 'MODULE_NOT_FOUND') {
+            console.warn(`Failed to determine TTY for pid ${pid}: ${error.message}`);
+        }
+        return null;
+    }
+}
 
 class TmuxManager {
-    constructor() {
+    constructor(options = {}) {
         this.sessionMetadata = new Map();
         this.parentSession = null;
         this.parentWindow = null;
         this.isUsingParentSession = false;
+        this.getTTYForPid = options.getTTYForPid || defaultGetTTYForPid;
         this._detectionPromise = this._detectParentSession();
     }
 
@@ -19,13 +39,16 @@ class TmuxManager {
         const tmuxEnv = process.env.TMUX;
         const tmuxPane = process.env.TMUX_PANE;
 
-        if(!tmuxEnv || !tmuxPane) {
-            // Not running inside tmux
+        if(tmuxEnv && tmuxPane) {
+            await this._detectFromPaneId(tmuxPane);
             return;
         }
 
+        await this._detectFromParentTTY();
+    }
+
+    async _detectFromPaneId(tmuxPane) {
         try {
-            // Get the session and window name for our pane
             const result = await this._runTmuxCommand([
                 'list-panes', '-F', '#S #W', '-f', `#{==:#D,${tmuxPane}}`
             ]);
@@ -33,25 +56,64 @@ class TmuxManager {
             const output = _.trim(result.stdout);
             if(output) {
                 const [session, window] = _.split(output, ' ');
-                this.parentSession = session;
-                this.parentWindow = window;
-                this.isUsingParentSession = true;
-                console.error(`Detected parent tmux session: ${session}, window: ${window}`);
-
-                // Set default scrollback size for parent session if it's too small
-                try {
-                    const currentLimit = await this.getScrollbackSize('default');
-                    if(currentLimit < DEFAULT_SCROLLBACK_SIZE) {
-                        await this.setScrollbackSize('default', DEFAULT_SCROLLBACK_SIZE);
-                        console.error(`Set scrollback size to ${DEFAULT_SCROLLBACK_SIZE} lines for parent session`);
-                    }
-                } catch(error) {
-                    // Don't fail parent session detection if setting scrollback fails
-                    console.warn(`Failed to set default scrollback size for parent session: ${error.message}`);
-                }
+                await this._handleParentSessionDetection(session, window);
             }
         } catch(error) {
             console.error('Failed to detect parent tmux session:', error.message);
+        }
+    }
+
+    async _detectFromParentTTY() {
+        try {
+            const tty = await this.getTTYForPid(process.ppid);
+            if(!tty) {
+                return;
+            }
+
+            const ttyCandidates = tty.startsWith('/dev/') ? [tty] : [tty, `/dev/${tty}`];
+
+            const result = await this._runTmuxCommand([
+                'list-panes', '-a', '-F', PANE_DETECTION_FORMAT
+            ]);
+
+            const output = _.trim(result.stdout);
+            if(!output) {
+                return;
+            }
+
+            const panes = _.compact(_.split(output, '\n'));
+            const match = _.find(panes, (line) => {
+                const [paneTTY] = _.split(line, '::', 1);
+                return ttyCandidates.includes(paneTTY);
+            });
+
+            if(!match) {
+                return;
+            }
+
+            const [, session, window] = _.split(match, '::', 3);
+            if(session && window) {
+                await this._handleParentSessionDetection(session, window);
+            }
+        } catch(error) {
+            console.error('Failed to detect parent tmux session:', error.message);
+        }
+    }
+
+    async _handleParentSessionDetection(session, window) {
+        this.parentSession = session;
+        this.parentWindow = window;
+        this.isUsingParentSession = true;
+        console.error(`Detected parent tmux session: ${session}, window: ${window}`);
+
+        try {
+            const currentLimit = await this.getScrollbackSize('default');
+            if(currentLimit < DEFAULT_SCROLLBACK_SIZE) {
+                await this.setScrollbackSize('default', DEFAULT_SCROLLBACK_SIZE);
+                console.error(`Set scrollback size to ${DEFAULT_SCROLLBACK_SIZE} lines for parent session`);
+            }
+        } catch(error) {
+            console.warn(`Failed to set default scrollback size for parent session: ${error.message}`);
         }
     }
 

@@ -9,6 +9,7 @@ describe('TmuxManager', () => {
     let mockSpawn;
     let originalTmux;
     let originalTmuxPane;
+    let getTTYForPidMock;
 
     beforeEach(() => {
         // Save original tmux environment variables
@@ -23,7 +24,8 @@ describe('TmuxManager', () => {
         spyOn(child_process, 'spawn').mockImplementation(mockSpawn);
 
         // Create tmux manager after environment is set up
-        tmuxManager = new TmuxManager();
+        getTTYForPidMock = mock(async () => null);
+        tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
     });
 
     afterEach(() => {
@@ -468,23 +470,76 @@ describe('TmuxManager', () => {
             // Mock the list-panes command to return session and window info
             mockSpawn.mockReturnValueOnce(createMockProcess('my-session my-window\n'));
 
-            tmuxManager = new TmuxManager();
+            getTTYForPidMock = mock(async () => null);
+            tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
             await tmuxManager.ensureInitialized();
 
             expect(tmuxManager.isUsingParentSession).toBe(true);
             expect(tmuxManager.parentSession).toBe('my-session');
             expect(tmuxManager.parentWindow).toBe('my-window');
+            expect(getTTYForPidMock).not.toHaveBeenCalled();
+        });
+
+        test('falls back to parent TTY detection when tmux env is missing', async () => {
+            const paneTTY = '/dev/ttys004';
+
+            // Detection: list-panes -a output mapping TTY to session/window
+            mockSpawn
+            .mockReturnValueOnce(createMockProcess(`${paneTTY}::fallback-session::fallback-window\n`))
+            // getScrollbackSize returns small value
+            .mockReturnValueOnce(createMockProcess('history-limit 2000\n'))
+            // setScrollbackSize noop
+            .mockReturnValueOnce(createMockProcess(''));
+
+            getTTYForPidMock = mock(async (pid) => {
+                expect(pid).toBe(process.ppid);
+                return paneTTY;
+            });
+
+            tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
+            await tmuxManager.ensureInitialized();
+
+            expect(getTTYForPidMock).toHaveBeenCalledTimes(1);
+            expect(tmuxManager.isUsingParentSession).toBe(true);
+            expect(tmuxManager.parentSession).toBe('fallback-session');
+            expect(tmuxManager.parentWindow).toBe('fallback-window');
+            expect(mockSpawn).toHaveBeenNthCalledWith(
+                1,
+                'tmux',
+                ['list-panes', '-a', '-F', '#{pane_tty}::#{session_name}::#{window_name}'],
+                expect.any(Object)
+            );
+        });
+
+        test('normalizes parent tty without /dev prefix', async () => {
+            const paneTTY = '/dev/pts/9';
+
+            mockSpawn
+            .mockReturnValueOnce(createMockProcess(`${paneTTY}::normalized-session::normalized-window\n`))
+            .mockReturnValueOnce(createMockProcess('history-limit 2000\n'))
+            .mockReturnValueOnce(createMockProcess(''));
+
+            getTTYForPidMock = mock(async () => 'pts/9');
+
+            tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
+            await tmuxManager.ensureInitialized();
+
+            expect(tmuxManager.isUsingParentSession).toBe(true);
+            expect(tmuxManager.parentSession).toBe('normalized-session');
+            expect(tmuxManager.parentWindow).toBe('normalized-window');
         });
 
         test('does not detect parent session when not in tmux', async () => {
             // Environment variables already cleared in beforeEach
 
-            tmuxManager = new TmuxManager();
+            getTTYForPidMock = mock(async () => null);
+            tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
             await tmuxManager.ensureInitialized();
 
             expect(tmuxManager.isUsingParentSession).toBe(false);
             expect(tmuxManager.parentSession).toBe(null);
             expect(tmuxManager.parentWindow).toBe(null);
+            expect(getTTYForPidMock).toHaveBeenCalledTimes(1);
         });
 
         test('handles parent session detection failure gracefully', async () => {
@@ -497,7 +552,8 @@ describe('TmuxManager', () => {
             // Spy on console.error to verify error logging
             consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
 
-            tmuxManager = new TmuxManager();
+            getTTYForPidMock = mock(async () => null);
+            tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
             await tmuxManager.ensureInitialized();
 
             expect(tmuxManager.isUsingParentSession).toBe(false);
@@ -520,7 +576,8 @@ describe('TmuxManager', () => {
             // Mock setScrollbackSize call
             mockSpawn.mockReturnValueOnce(createMockProcess(''));
 
-            tmuxManager = new TmuxManager();
+            getTTYForPidMock = mock(async () => null);
+            tmuxManager = new TmuxManager({ getTTYForPid: getTTYForPidMock });
             await tmuxManager.ensureInitialized();
         });
 

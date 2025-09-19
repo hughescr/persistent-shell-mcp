@@ -4,14 +4,15 @@
     "": {
       "name": "persistent-shell-mcp",
       "dependencies": {
-        "@modelcontextprotocol/sdk": "latest",
-        "lodash": "latest",
+        "@modelcontextprotocol/sdk": "^1.17.1",
+        "lodash": "^4.17.21",
+        "systeminformation": "^5.23.19",
       },
       "devDependencies": {
-        "@hughescr/eslint-config-default": "latest",
-        "eslint": "latest",
-        "eslint-plugin-jest": "latest",
-        "eslint-plugin-package-json": "latest",
+        "@hughescr/eslint-config-default": "^3.0.4",
+        "eslint": "^9.32.0",
+        "eslint-plugin-jest": "^29.0.1",
+        "eslint-plugin-package-json": "^0.48.0",
       },
     },
   },
@@ -443,6 +444,8 @@
     "strip-json-comments": ["strip-json-comments@3.1.1", "", {}, "sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig=="],
 
     "supports-color": ["supports-color@7.2.0", "", { "dependencies": { "has-flag": "^4.0.0" } }, "sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw=="],
+
+    "systeminformation": ["systeminformation@5.27.10", "", { "os": "!aix", "bin": { "systeminformation": "lib/cli.js" } }, "sha512-jkeOerLSwLZqJrPHCYltlKHu0PisdepIuS4GwjFFtgQUG/5AQPVZekkECuULqdP0cgrrIHW8Nl8J7WQXo5ypEg=="],
 
     "tapable": ["tapable@2.2.2", "", {}, "sha512-Re10+NauLTMCudc7T5WLFLAwDhQ0JWdrMK+9B2M8zR5hRExKmsRDCBA7/aV/pNJFltmBFO5BAMlQFi/vq3nKOg=="],
 
